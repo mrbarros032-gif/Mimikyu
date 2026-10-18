@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/images/cover.png" alt="Mimikyu Cover" width="100%" />
 
-  <h1>Mimikyu</h1>
+  
   <p><strong>A modern, fluid Android music streaming app built with Jetpack Compose, real-time word-by-word synced TTML lyrics, sleek glassmorphism, and seamless cloud sync.</strong></p>
 
   <p>
