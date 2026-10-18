@@ -1,0 +1,446 @@
+package com.lin0721.linmusic.feature.playlist.ui
+
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.res.painterResource
+import com.lin0721.linmusic.R
+import com.lin0721.linmusic.core.ui.theme.OctoberRed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shuffle
+import com.lin0721.linmusic.core.ui.theme.MimikyuIcons
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.draw.shadow
+import com.lin0721.linmusic.core.ui.interaction.pressable
+import com.lin0721.linmusic.core.ui.theme.MimikyuPress
+import com.lin0721.linmusic.core.ui.components.CoverPlaceholder
+import com.lin0721.linmusic.core.ui.theme.TextGray
+import com.lin0721.linmusic.core.ui.theme.darken
+import com.lin0721.linmusic.core.ui.theme.extractBaseColorFromUrl
+import com.lin0721.linmusic.core.model.PlaylistDetail
+
+// ────────────────────────────────────────────────────────────────────────────
+// Mimikyu-Style Immersive Hero Banner (LazyColumn Item 0)
+// ────────────────────────────────────────────────────────────────────────────
+@Composable
+fun PlaylistHeaderItem(
+    playlist: PlaylistDetail,
+    coverSize: Dp,
+    coverAlpha: Float,
+    progress: Float,
+    statusBarHeight: Dp,
+    dominantColor: Color,
+    onColorCalculated: (Color) -> Unit,
+    onPlayAll: () -> Unit,
+    onShuffleToggle: () -> Unit,
+    isShuffleActive: Boolean,
+    isCurrentlyPlayingThis: Boolean,
+    isSubscribed: Boolean,
+    onSubscribeClick: () -> Unit,
+    onMoreClick: () -> Unit,
+    isLikedSongsPlaylistView: Boolean = false,
+    isOwnedPlaylist: Boolean = false,
+    isAlbum: Boolean = false,
+    onShareClick: () -> Unit = {},
+    onDownloadClick: () -> Unit = {},
+    onAddToQueueClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
+    onSortClick: () -> Unit = {},
+    onHistoryClick: () -> Unit = {},
+    selectedHistoryDate: String = "Today",
+    onCreatorClick: (Long) -> Unit = {},
+    onPlayButtonPositioned: (Float) -> Unit = {},
+    onBack: () -> Unit = {}
+) {
+    var showDescriptionSheet by remember { mutableStateOf(false) }
+    var hasDescOverflow by remember(playlist.description) { mutableStateOf(false) }
+
+    val todayStr = remember {
+        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+    }
+    val displayDateStr = remember(selectedHistoryDate) {
+        if (selectedHistoryDate == "Today") {
+            todayStr
+        } else {
+            val parts = selectedHistoryDate.split("-")
+            if (parts.size == 3) {
+                "${parts[0]}-${parts[1]}-${parts[2]}"
+            } else {
+                selectedHistoryDate
+            }
+        }
+    }
+
+    val titleAlpha = 1f - ((progress - 0.4f) / 0.4f).coerceIn(0f, 1f)
+    val animatedDominant by animateColorAsState(
+        targetValue = dominantColor,
+        animationSpec = tween(800),
+        label = "playlist_header_color"
+    )
+    val gradientTop = remember(animatedDominant) { animatedDominant.darken(0.35f) }
+
+    // Featured artists text for Mimikyu-style subtitle preview
+    val featuredArtistsText = remember(playlist.tracks, playlist.description, playlist.creator) {
+        val names = playlist.tracks.take(4)
+            .flatMap { it.ar }
+            .map { it.name.trim() }
+            .filter { it.isNotEmpty() && !it.equals("YouTube Music", ignoreCase = true) }
+            .distinct()
+        when {
+            names.isNotEmpty() -> names.joinToString(", ") + if (playlist.tracks.size > 4) ", and more" else ""
+            playlist.description?.isNotBlank() == true &&
+                !playlist.description.equals("YouTube Music", ignoreCase = true) &&
+                !playlist.description.equals("Curated Playlist", ignoreCase = true) &&
+                !playlist.description.equals("Playlist", ignoreCase = true) -> playlist.description
+            playlist.creator?.nickname?.isNotBlank() == true &&
+                !playlist.creator.nickname.equals("YouTube Music", ignoreCase = true) &&
+                !playlist.creator.nickname.equals("Mimikyu", ignoreCase = true) &&
+                !playlist.creator.nickname.equals("October", ignoreCase = true) -> playlist.creator.nickname
+            else -> ""
+        }
+    }
+
+    // Calculate total duration
+    val totalDurationMs = remember(playlist.tracks) { playlist.tracks.sumOf { it.dt } }
+    val durationFormatted = remember(totalDurationMs) {
+        if (totalDurationMs > 0) {
+            val totalSecs = totalDurationMs / 1000
+            val hours = totalSecs / 3600
+            val mins = (totalSecs % 3600) / 60
+            if (hours > 0) "${hours} hr ${mins} min" else "${mins} min"
+        } else ""
+    }
+
+    val context = LocalContext.current
+    val coverRequest = remember(playlist.coverImgUrl) {
+        ImageRequest.Builder(context)
+            .data(if (playlist.coverImgUrl.isNotBlank()) "${playlist.coverImgUrl}?param=600y600" else null)
+            .allowHardware(false)
+            .crossfade(true)
+            .build()
+    }
+
+    LaunchedEffect(playlist.coverImgUrl) {
+        if (playlist.coverImgUrl.isNotEmpty()) {
+            onColorCalculated(extractBaseColorFromUrl(context, playlist.coverImgUrl))
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    0.0f to gradientTop.copy(alpha = 0.95f),
+                    0.40f to gradientTop.copy(alpha = 0.50f),
+                    0.80f to MaterialTheme.colorScheme.background,
+                    1.0f to MaterialTheme.colorScheme.background
+                )
+            )
+            .padding(top = statusBarHeight)
+    ) {
+        // ── 1. Top Search Playlist & Sort Row ──
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(MimikyuIcons.ArrowLeft),
+                contentDescription = "Back",
+                tint = Color.White,
+                modifier = Modifier
+                    .size(24.dp)
+                    .pressable(MimikyuPress.Icon) { onBack() }
+            )
+
+            Spacer(Modifier.width(12.dp))
+
+            // Search pill box
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.White.copy(alpha = 0.12f))
+                    .pressable(MimikyuPress.Card) { onSearchClick() }
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Search playlist",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    painter = painterResource(MimikyuIcons.Search),
+                    contentDescription = "Search",
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Spacer(Modifier.width(10.dp))
+
+            // Sort button
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .pressable(MimikyuPress.Icon) { onSortClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(MimikyuIcons.Sort),
+                    contentDescription = "Sort playlist",
+                    tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+
+        // ── 2. Centered Square Cover Art with Neon Glow ──
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 14.dp, bottom = 18.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // Neon accent glow bar under bottom edge of cover
+            Box(
+                modifier = Modifier
+                    .width(190.dp)
+                    .height(6.dp)
+                    .offset(y = 106.dp)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(
+                                Color(0xFF6200EE).copy(alpha = 0.8f),
+                                Color(0xFF3700B3).copy(alpha = 0.9f),
+                                Color(0xFF03DAC6).copy(alpha = 0.7f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(3.dp)
+                    )
+            )
+
+            // Centered square cover card
+            Box(
+                modifier = Modifier
+                    .size(210.dp)
+                    .shadow(elevation = 16.dp, shape = RoundedCornerShape(8.dp), spotColor = Color.Black)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF242424))
+            ) {
+                SubcomposeAsyncImage(
+                    model              = coverRequest,
+                    contentDescription = playlist.name,
+                    contentScale       = ContentScale.Crop,
+                    loading            = { CoverPlaceholder() },
+                    error              = { CoverPlaceholder() },
+                    modifier           = Modifier.fillMaxSize()
+                )
+
+                // White Mimikyu logo badge in top-left
+                Image(
+                    painter = painterResource(R.drawable.ic_mimikyu_logo),
+                    contentDescription = "Mimikyu",
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .size(18.dp)
+                        .align(Alignment.TopStart)
+                )
+
+                // Bottom title badge on cover (for Mimikyu mixes)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomStart)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
+                            )
+                        )
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .width(3.dp)
+                                .height(14.dp)
+                                .background(Color(0xFF6200EE), RoundedCornerShape(1.dp))
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = playlist.name,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── 3. Title & Subtitle Section ──
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        ) {
+            Text(
+                text = playlist.name,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 24.sp,
+                lineHeight = 28.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            val displayAuthor = featuredArtistsText
+            val totalTrackCount = if (playlist.trackIds.isNotEmpty()) playlist.trackIds.size else playlist.tracks.size
+            val songText = if (totalTrackCount > 0) "$totalTrackCount songs" else ""
+            val durationText = if (durationFormatted.isNotBlank()) durationFormatted else ""
+            val subtitle = listOf(displayAuthor, songText, durationText)
+                .filter { it.isNotBlank() }
+                .joinToString("  •  ")
+
+            Text(
+                text = subtitle,
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // ── 3. Mimikyu Action Bar Row ──
+        if (playlist.id != -1L && playlist.id != -2L) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Left Actions: Add to library + Download + More
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 1. Add to playlist / library (Plus circle / Check circle)
+                    Icon(
+                        painter = painterResource(if (isSubscribed) MimikyuIcons.CheckCircle else MimikyuIcons.PlusCircle),
+                        contentDescription = if (isSubscribed) "Added to your library" else "Add to library",
+                        tint = if (isSubscribed) Color(0xFF1ED760) else Color.White.copy(alpha = 0.72f),
+                        modifier = Modifier
+                            .size(24.dp)
+                            .pressable(MimikyuPress.Icon) { onSubscribeClick() }
+                    )
+
+                    // 2. Download icon
+                    Icon(
+                        painter = painterResource(MimikyuIcons.Download),
+                        contentDescription = "Download",
+                        tint = Color.White.copy(alpha = 0.72f),
+                        modifier = Modifier
+                            .size(24.dp)
+                            .pressable(MimikyuPress.Icon) { onDownloadClick() }
+                    )
+
+                    // 3. More options icon (...)
+                    Icon(
+                        painter = painterResource(MimikyuIcons.More),
+                        contentDescription = "More",
+                        tint = Color.White.copy(alpha = 0.72f),
+                        modifier = Modifier
+                            .size(24.dp)
+                            .pressable(MimikyuPress.Icon) { onMoreClick() }
+                    )
+                }
+
+                // Right Actions: Shuffle + Green Circular Play Button
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 5. Shuffle icon
+                    Icon(
+                        painter = painterResource(MimikyuIcons.Shuffle),
+                        contentDescription = "Shuffle",
+                        tint = if (isShuffleActive) Color(0xFF1ED760) else Color.White.copy(alpha = 0.72f),
+                        modifier = Modifier
+                            .size(26.dp)
+                            .pressable(MimikyuPress.Icon) { onShuffleToggle() }
+                    )
+
+                    // 6. Anchor play button positioned for floating button tracking
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .onGloballyPositioned { coordinates ->
+                                onPlayButtonPositioned(coordinates.positionInRoot().y)
+                            }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDescriptionSheet) {
+        PlaylistDescriptionSheet(
+            playlist = playlist,
+            onDismiss = { showDescriptionSheet = false }
+        )
+    }
+}

@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────────────────────
+    // Helper Functions
+    // ─────────────────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // App Check enforcement helper (active when App Check is enforced)
+    function isAppCheckVerified() {
+      return request.auth != null; // Enforced via Firebase Console App Check toggle
+    }
+
+    function isValidUsername(str) {
+      return str is string && str.size() >= 3 && str.size() <= 25 && str.matches('^[a-zA-Z0-9_.]+$');
+    }
+
+    function isValidDisplayName(str) {
+      return str is string && str.size() >= 1 && str.size() <= 40;
+    }
+
+    function isValidCurrentTrack(track) {
+      return track == null || (
+        track is map &&
+        (!('songId' in track) || track.songId is string || track.songId is int) &&
+        (!('title' in track) || track.title is string) &&
+        (!('artist' in track) || track.artist is string) &&
+        (!('coverUrl' in track) || track.coverUrl is string) &&
+        (!('isPlaying' in track) || track.isPlaying is bool)
+      );
+    }
+
+    function isValidUserPayload(data, userId) {
+      return data.uid == userId &&
+        (!('username' in data) || isValidUsername(data.username)) &&
+        (!('displayName' in data) || isValidDisplayName(data.displayName)) &&
+        (!('nickname' in data) || isValidDisplayName(data.nickname)) &&
+        (!('avatarUrl' in data) || data.avatarUrl is string) &&
+        (!('currentTrack' in data) || isValidCurrentTrack(data.currentTrack));
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 1. User Profiles & Social Graph
+    // ─────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isOwner(userId) && isValidUserPayload(request.resource.data, userId);
+
+      allow update: if isOwner(userId) 
+        && request.resource.data.uid == resource.data.uid
+        && isValidUserPayload(request.resource.data, userId);
+
+      allow delete: if isOwner(userId);
+
+      // Following: Stores followed Friends and Artists
+      match /following/{targetId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId) && request.resource.data.type in ['user', 'artist'];
+        allow delete: if isOwner(userId);
+      }
+
+      // Followers: Stores users who follow this userId
+      match /followers/{followerUid} {
+        allow read: if isAuthenticated();
+        allow create, update: if isAuthenticated() 
+          && request.auth.uid == followerUid 
+          && request.resource.data.uid == request.auth.uid;
+        allow delete: if isAuthenticated() 
+          && (request.auth.uid == followerUid || request.auth.uid == userId);
+      }
+
+      // Liked songs collections (supporting both likedSongs and liked_songs)
+      match /likedSongs/{songId} { allow read, write: if isOwner(userId); }
+      match /liked_songs/{songId} { allow read, write: if isOwner(userId); }
+      
+      // User telemetry & listening history
+      match /plays/{playId} { allow read, write: if isOwner(userId); }
+      match /stats/{statId} { allow read, write: if isOwner(userId); }
+      match /statsDaily/{day} { allow read, write: if isOwner(userId); }
+      match /statsMonthly/{month} { allow read, write: if isOwner(userId); }
+      match /topSongs/{songId} { allow read, write: if isOwner(userId); }
+      match /topArtists/{artistId} { allow read, write: if isOwner(userId); }
+      match /friends/{friendUid} { allow read, write: if isOwner(userId); }
+
+      // Incoming friend requests and notifications
+      match /friend_requests/{senderUid} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isAuthenticated() && request.auth.uid == senderUid;
+      }
+      match /notifications/{notifId} {
+        allow read, delete: if isOwner(userId);
+        allow create: if isAuthenticated();
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2. Unique Username Reservation Index
+    // ─────────────────────────────────────────────────────────────
+    match /usernames/{usernameLower} {
+      allow read: if isAuthenticated();
+
+      // Only owner can claim a new username
+      allow create: if isAuthenticated()
+        && request.resource.data.uid == request.auth.uid
+        && usernameLower == request.resource.data.username.lower();
+
+      // Only owner can update or delete/release their username
+      allow update, delete: if isAuthenticated() 
+        && resource.data.uid == request.auth.uid;
+    }
+  }
+}

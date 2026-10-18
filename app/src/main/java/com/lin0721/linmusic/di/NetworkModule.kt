@@ -1,0 +1,161 @@
+package com.lin0721.linmusic.di
+
+import com.lin0721.linmusic.core.api.NeteaseApiService
+import com.lin0721.linmusic.core.network.CryptoInterceptor
+import com.lin0721.linmusic.core.network.EmptyBodyInterceptor
+import com.lin0721.linmusic.core.network.HeaderInterceptor
+import com.lin0721.linmusic.core.network.NeteaseEndpoints
+import com.lin0721.linmusic.core.network.RealIpProvider
+import com.lin0721.linmusic.feature.artist.data.ArtistApi
+import com.lin0721.linmusic.core.download.data.DownloadApi
+import com.lin0721.linmusic.core.player.data.PlaybackApi
+import com.lin0721.linmusic.core.songlike.SongLikeApi
+import com.lin0721.linmusic.core.userplaylist.UserPlaylistApi
+import com.lin0721.linmusic.feature.create.data.CreateApi
+import com.lin0721.linmusic.feature.home.data.HomeApi
+import com.lin0721.linmusic.feature.music.data.MusicApi
+import com.lin0721.linmusic.feature.library.data.LibraryApi
+import com.lin0721.linmusic.feature.listendata.data.ListenDataApi
+import com.lin0721.linmusic.feature.newworks.data.NewWorksApi
+import com.lin0721.linmusic.feature.player.data.PlayerApi
+import com.lin0721.linmusic.feature.playlist.data.PlaylistApi
+import com.lin0721.linmusic.feature.profile.data.ProfileApi
+import com.lin0721.linmusic.feature.recent.data.RecentApi
+import com.lin0721.linmusic.feature.search.data.SearchApi
+import com.lin0721.linmusic.feature.settings.data.SettingsApi
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import com.lin0721.linmusic.BuildConfig
+import okhttp3.logging.HttpLoggingInterceptor
+import org.koin.dsl.module
+import retrofit2.Retrofit
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import java.util.concurrent.TimeUnit
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+
+/**
+ * Koin 
+ *
+ * ：
+ * - [Json]                ： kotlinx.serialization 
+ * - [CryptoInterceptor]   ： 
+ * - [OkHttpClient]        ：  + 
+ * - [Retrofit]            ：  kotlinx.serialization  of 
+ * - [NeteaseApiService]   ：  Retrofit （core/auth ）
+ * -  Api           ： HomeApi/PlaylistApi/CreateApi/PlayerApi/ArtistApi/SearchApi/LibraryApi/SettingsApi
+ * - core  Api          ： CommentApi/SongLikeApi/PlaybackApi/DownloadApi/UserPlaylistApi/UserArtistApi
+ */
+val networkModule = module {
+
+    // ─── kotlinx.serialization Json  ───
+    single {
+        Json {
+            ignoreUnknownKeys = true       // Back of
+            coerceInputValues = true        // null →
+            encodeDefaults = true
+            isLenient = true
+            explicitNulls = false           // null
+        }
+    }
+
+    // ───  ───
+    single { CryptoInterceptor(get()) }
+
+    // ───  ───
+    single { EmptyBodyInterceptor() }
+
+    // ─── IP （HeaderInterceptor  and ，） ───
+    single { RealIpProvider() }
+
+    // ───  ───
+    single { HeaderInterceptor(get(), get(), get()) }
+
+    // ─── OkHttpClient ───
+    single {
+        val settingsPreferences: SettingsPreferences = get()
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            settingsPreferences.useProxy.collectLatest { enabled ->
+                NetworkConfig.useProxy = enabled
+            }
+        }
+
+        val proxySelector = object : java.net.ProxySelector() {
+            override fun select(uri: java.net.URI?): MutableList<java.net.Proxy> {
+                return if (NetworkConfig.useProxy) {
+                    java.net.ProxySelector.getDefault()?.select(uri) ?: mutableListOf(java.net.Proxy.NO_PROXY)
+                } else {
+                    mutableListOf(java.net.Proxy.NO_PROXY)
+                }
+            }
+
+            override fun connectFailed(uri: java.net.URI?, sa: java.net.SocketAddress?, ioe: java.io.IOException?) {
+                java.net.ProxySelector.getDefault()?.connectFailed(uri, sa, ioe)
+            }
+        }
+
+        OkHttpClient.Builder()
+            .proxySelector(proxySelector)
+            .addInterceptor(get<EmptyBodyInterceptor>())
+            .addInterceptor(get<HeaderInterceptor>())
+            .addInterceptor(get<CryptoInterceptor>())
+            .addInterceptor(
+                HttpLoggingInterceptor().apply {
+                    level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+                    redactHeader("Cookie")
+                    redactHeader("Set-Cookie")
+                }
+            )
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+
+    // ─── Retrofit ───
+    single {
+        val json: Json = get()
+        val contentType = "application/json".toMediaType()
+
+        Retrofit.Builder()
+            .baseUrl(NeteaseEndpoints.WEB_BASE_URL)
+            .client(get())
+            .addConverterFactory(json.asConverterFactory(contentType))
+            .build()
+    }
+
+    // ─── API Service（core/auth ） ───
+    single<NeteaseApiService> {
+        get<Retrofit>().create(NeteaseApiService::class.java)
+    }
+
+    // ───  of  API Service ───
+    single<HomeApi> { get<Retrofit>().create(HomeApi::class.java) }
+    single<MusicApi> { get<Retrofit>().create(MusicApi::class.java) }
+    single<PlaylistApi> { get<Retrofit>().create(PlaylistApi::class.java) }
+    single<CreateApi> { get<Retrofit>().create(CreateApi::class.java) }
+    single<PlayerApi> { get<Retrofit>().create(PlayerApi::class.java) }
+    single<ArtistApi> { get<Retrofit>().create(ArtistApi::class.java) }
+    single<SearchApi> { get<Retrofit>().create(SearchApi::class.java) }
+    single<LibraryApi> { get<Retrofit>().create(LibraryApi::class.java) }
+    single<RecentApi> { get<Retrofit>().create(RecentApi::class.java) }
+
+    single<ListenDataApi> { get<Retrofit>().create(ListenDataApi::class.java) }
+    single<NewWorksApi> { get<Retrofit>().create(NewWorksApi::class.java) }
+    single<SongLikeApi> { get<Retrofit>().create(SongLikeApi::class.java) }
+    single<PlaybackApi> { get<Retrofit>().create(PlaybackApi::class.java) }
+    single<DownloadApi> { get<Retrofit>().create(DownloadApi::class.java) }
+    single<UserPlaylistApi> { get<Retrofit>().create(UserPlaylistApi::class.java) }
+    single<SettingsApi> { get<Retrofit>().create(SettingsApi::class.java) }
+    single<ProfileApi> { get<Retrofit>().create(ProfileApi::class.java) }
+}
+
+object NetworkConfig {
+    @Volatile
+    var useProxy: Boolean = false
+}

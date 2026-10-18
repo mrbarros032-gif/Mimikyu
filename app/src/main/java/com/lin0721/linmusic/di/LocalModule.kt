@@ -1,0 +1,31 @@
+package com.lin0721.linmusic.di
+
+import com.lin0721.linmusic.core.auth.GoogleAuthManager
+import com.lin0721.linmusic.core.auth.UserPreferences
+import com.lin0721.linmusic.core.contentfilter.ContentFilter
+import com.lin0721.linmusic.core.download.DownloadPreferences
+import com.lin0721.linmusic.core.network.ResourceProvider
+import com.lin0721.linmusic.core.player.PlaybackPreferences
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.feature.search.data.SearchHistoryPreferences
+import org.koin.android.ext.koin.androidContext
+import org.koin.dsl.module
+
+val localModule = module {
+    single { PlaybackPreferences(androidContext()) }
+    single { UserPreferences(androidContext()) }
+    single { GoogleAuthManager(androidContext(), get()) }
+    single { com.lin0721.linmusic.core.firebase.FirestorePlaylistManager() }
+    single { SettingsPreferences(androidContext()) }
+    single { ContentFilter(get()) }
+    single { ResourceProvider(androidContext()) }
+    single { SearchHistoryPreferences(androidContext()) }
+    single<com.lin0721.linmusic.core.network.crypto.XeapiKeyStore> {
+        com.lin0721.linmusic.core.network.crypto.XeapiKeyStoreImpl(androidContext())
+    }
+    single { DownloadPreferences(androidContext()) }
+    single { com.lin0721.linmusic.core.auth.AuthState() }
+    single { com.lin0721.linmusic.core.player.PlayRecorder(get()) }
+    single { com.lin0721.linmusic.core.friend.FriendNotificationHelper(androidContext()) }
+    single { com.lin0721.linmusic.core.friend.FriendManager(androidContext(), get(), get()) }
+}

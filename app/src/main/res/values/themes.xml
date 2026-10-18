@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.October" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!--  com.canhub.cropper.CropImageActivity ： Activity  AppCompatActivity，
+          AppCompat ， Theme.October ，。
+          NoActionBar： ActionBar  of ， ActionBar ，
+         CropImageOptions  toolbar*  -->
+    <style name="Theme.October.Cropper" parent="Theme.AppCompat.DayNight" />
+
+    <!-- ：， -->
+    <style name="Theme.October.Translucent" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+</resources>

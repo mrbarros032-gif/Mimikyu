@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--  of ， cacheDir  of  logs  -->
+    <cache-path name="app_logs" path="logs/" />
+    <!-- ， cacheDir  of  local_covers  -->
+    <cache-path name="local_covers" path="local_covers/" />
+    <!-- Mimikyu  -->
+    <cache-path name="share_cards" path="share/" />
+    <!--  APK ， getExternalFilesDir(null)  of  updates  -->
+    <external-files-path name="app_updates" path="updates/" />
+</paths>
