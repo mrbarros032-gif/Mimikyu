@@ -1,8 +1,6 @@
-<div align="center">
-  <img src="docs/images/cover.png" alt="Mimikyu" />
 
-  <h1>Mimikyu (ミミッキュ)</h1>
-  <p>A modern, fluid Android music player built with Jetpack Compose, real-time synced TTML lyrics, sleek glassmorphism, and seamless offline library management.</p>
+  <h1>Mimikyu</h1>
+  <p><strong>A modern, fluid Android music streaming app built with Jetpack Compose, real-time word-by-word synced TTML lyrics, sleek glassmorphism, and seamless cloud sync.</strong></p>
 
   <p>
     <a href="https://github.com/szzsuke/Mimikyu/releases/latest">
@@ -11,158 +9,151 @@
   </p>
 
   <p>
-    <a href="https://github.com/szzsuke/Mimikyu/releases"><img src="https://img.shields.io/github/v/release/szzsuke/Mimikyu?style=flat-square&color=blue" alt="GitHub Release" /></a>
-    <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android%208.0%2B-green?style=flat-square" alt="Platform" /></a>
-    <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.x-purple?style=flat-square" alt="Kotlin" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
+    <a href="https://buymeachai.in/szzsuke" target="_blank">
+      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Chai-szzsuke-FF813F?style=for-the-badge&logo=coffee&logoColor=white" alt="Buy Me a Chai" />
+    </a>
+    &nbsp;
+    <a href="https://buymeacoffee.com/szzsuke" target="_blank">
+      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-szzsuke-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me a Coffee" />
+    </a>
+  </p>
+
+  <p>
+    <a href="https://github.com/szzsuke/Mimikyu/releases"><img src="https://img.shields.io/github/v/release/szzsuke/Mimikyu?style=flat-square&color=6C5CE7" alt="GitHub Release" /></a>
+    <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-brightgreen?style=flat-square" alt="Platform" /></a>
+    <a href="https://kotlinlang.org"><img src="https://img.shields.io/badge/Kotlin-2.x-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License" /></a>
+    <a href="https://github.com/szzsuke/Mimikyu/stargazers"><img src="https://img.shields.io/github/stars/szzsuke/Mimikyu?style=flat-square&color=yellow" alt="Stars" /></a>
   </p>
 </div>
 
 ---
 
-## 截图预览
+## 🌟 Overview
 
-### 手机
+**Mimikyu** is a high-performance, private, edge-to-edge music streaming client for Android. Powered by **YouTube Music InnerTube** and a curated database of **25,000+ synchronized TTML word-by-word karaoke lyrics**, Mimikyu delivers an immersive listening journey with hardware-accelerated fluid animations, real-time background blur, and cloud library synchronization.
+
+---
+
+## ✨ Key Features
+
+- **🎤 Syllable-by-Syllable Glowing Karaoke Lyrics**:
+  - Integrated with our cloud database of **25,000+ TTML lyrics** hosted on high-speed Supabase Storage CDN.
+  - Accompanist-powered glowing syllable visualizer with smooth fluid auto-scrolling and tempo synchronization.
+  - Multi-tier fallback cascade supporting TTML, LRC, YRC, and KRC.
+- **⚡ AndroidX Media3 ExoPlayer Audio Engine**:
+  - Gapless playback, intelligent pre-buffering, dynamic audio cache, and automatic retry on connection drops.
+  - MediaSession background playback service with media notification controls and headset disconnect listener.
+- **🎨 Modern Glassmorphism & Fluid UI**:
+  - Built 100% in declarative **Jetpack Compose** with Material 3 dynamic color tokens extracted from album artwork.
+  - Hardware-accelerated real-time background blur powered by **Chris Banes Haze**.
+  - Dynamic Artist Hero carousel with high-resolution backdrops and curated home shelves.
+- **☁️ Cloud Sync & Social Presence**:
+  - Seamless Google Sign-In and account linkage powered by Firebase Authentication.
+  - Real-time Cloud Firestore synchronization for your Liked Songs, custom playlists, and profile across devices.
+- **📦 Universal Playlist Importer**:
+  - Import playlists from Spotify, Apple Music, and YouTube Music via `.csv` or `.zip` archives.
+  - 5MB upload size guard, zip bomb protection, header verification, and automatic routing into Liked Songs.
+- **📱 Offline Music & Local Library**:
+  - Room database persistence for offline caching.
+  - Built-in local audio scanner supporting FLAC, MP3, and AAC with native TagLib ID3 tag extraction.
+  - Switchable Library layout: Toggle between **Grid view** (default) and **List view**.
+- **🎨 Social Share Engine**:
+  - Generate Spotify-style lyric quote sharing cards and track cards with album art and QR links.
+- **🛡️ Enterprise-Grade DevSecOps & Security**:
+  - **Supabase Row Level Security (RLS)**: Enforces strict bucket policies preventing mass data dumps or scraping while allowing rapid single-song queries.
+  - **Firebase App Check**: Hardened with Play Integrity provider to shield Firestore user collections from unauthorized bots and modified clients.
+  - Zero hardcoded secrets in source code; fully decoupled via `local.properties` and `BuildConfig`.
+
+---
+
+
+
+---
+
+## ☕ Support & Sponsor the Project
+
+Mimikyu is an independent open-source project maintained with passion. If you enjoy using Mimikyu and appreciate the ad-free streaming experience, high-resolution lyrics database, and fluid UI, please consider supporting development:
 
 <div align="center">
-  <img src="docs/screenshots/home.webp" width="19%" alt="首页" />
-  <img src="docs/screenshots/library.webp" width="19%" alt="音乐库" />
-  <img src="docs/screenshots/player.webp" width="19%" alt="播放器" />
-  <img src="docs/screenshots/lyrics.webp" width="19%" alt="歌词" />
-  <img src="docs/screenshots/profile.webp" width="19%" alt="个人主页" />
-</div>
 
-### 平板
+[![Buy Me a Chai](https://img.shields.io/badge/🍵%20Buy%20Me%20a%20Chai-szzsuke-FF813F?style=for-the-badge&logo=coffee&logoColor=white)](https://buymeachai.in/szzsuke)
+&nbsp;&nbsp;&nbsp;&nbsp;
+[![Buy Me a Coffee](https://img.shields.io/badge/☕%20Buy%20Me%20a%20Coffee-szzsuke-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/szzsuke)
 
-<div align="center">
-  <img src="docs/screenshots/tablet-portrait-home.webp" width="32%" alt="平板竖屏首页" />
-  <img src="docs/screenshots/tablet-portrait-panel.webp" width="32%" alt="平板竖屏播放侧栏" />
-</div>
-<div align="center">
-  <img src="docs/screenshots/tablet-landscape-panel.webp" width="32%" alt="平板横屏播放侧栏" />
-  <img src="docs/screenshots/tablet-fullscreen-lyrics.webp" width="32%" alt="平板全屏播放页歌词" />
-  <img src="docs/screenshots/tablet-fullscreen-info.webp" width="32%" alt="平板全屏播放页歌曲信息" />
+<p>Your support directly covers backend database maintenance, TTML lyrics pipeline compute, and continuous feature development. Thank you!</p>
+
 </div>
 
 ---
 
-## 下载与反馈
+## 📥 Download & Installation
 
-- **安装包下载**：前往 [GitHub Releases](https://github.com/szzsuke/Mimikyu/releases) 获取最新预编译 APK
-- **缺陷与建议**：[GitHub Issues](https://github.com/szzsuke/Mimikyu/issues)
+- **Direct Download**: Grab the latest `.apk` from **[GitHub Releases](https://github.com/szzsuke/Mimikyu/releases/latest)**.
+- **Bug Reports & Requests**: Submit feedback and ideas via **[GitHub Issues](https://github.com/szzsuke/Mimikyu/issues)**.
 
 ---
-## 项目架构
 
-项目按**业务域 (Feature-Driven)** 组织代码：`core` 承载全局共享基础设施与通用能力，`feature` 下每个独立业务域自持 `data` / `domain` / `ui` 结构。依赖方向单向收敛——`feature` 依赖 `core`，`core` 不反向依赖 `feature`，各业务域之间解耦无循环依赖。
+## 🏗️ Technical Architecture
+
+Mimikyu adheres strictly to modern Android architecture principles with **Feature-Driven separation of concerns**:
 
 ```text
 app/src/main/java/com/lin0721/linmusic/
-├── MimikyuApplication.kt        # 应用程序入口：Koin 依赖注入初始化与 Coil 预热
-├── MainActivity.kt              # 单 Activity 架构：系统窗口适应与悬浮窗权限引导
-├── MimikyuApp.kt                # 顶层组合：导航骨架编排与播放器图层联动
-├── MimikyuNavHost.kt            # 核心路由分发与平滑转场动画配置
-├── MimikyuOverlays.kt           # 全屏播放器底栏、底部弹窗与全局反馈浮层
-├── MimikyuNavigationState.kt    # 自定义导航回退栈管理与参数上下文恢复
-├── MimikyuPlayerSheetState.kt   # 全屏播放器展开/收起手势状态机
-├── MimikyuSidebarState.kt       # 侧边栏抽屉滑动状态机
+├── MimikyuApplication.kt        # Entry point: Koin DI, Coil pre-warming, and Firebase App Check init
+├── MainActivity.kt              # Single Activity: Edge-to-edge system bar insets & overlay handling
+├── MimikyuApp.kt                # Root composition: Scaffold, navigation router, and miniplayer
+├── MimikyuNavHost.kt            # Compose animated transition routing engine
+├── MimikyuOverlays.kt           # Fullscreen player sheet, bottom drawers, and modal sheets
+├── MimikyuNavigationState.kt    # Multi-stack backstack state coordinator
+├── MimikyuPlayerSheetState.kt   # Smooth gesture-driven bottom sheet state machine
 │
-├── core/                        # 跨域共享基础能力
-│   ├── api/                     # 账号鉴权与公共接口定义
-│   ├── auth/                    # 登录状态、凭据持久化与用户信息同步
-│   ├── comment/                 # 评论通用数据流与 UI 组件
-│   ├── contentfilter/           # 内容屏蔽与黑名单过滤
-│   ├── log/                     # 日志输出与异常捕获
-│   ├── model/                   # 全局领域数据模型与实体映射
-│   ├── network/                 # 原生加密引擎、OkHttp 拦截器与统一网络适配
-│   ├── player/                  # 播放器核心引擎（ExoPlayer、队列调度、进度广播）
-│   ├── playlistmutation/        # 歌单创建/编辑、歌曲增删与排序操作
-│   ├── preferences/             # DataStore 与轻量级配置持久化
-│   ├── songlike/                # 歌曲红心收藏状态管理
-│   ├── ui/                      # Material 3 主题、通用交互组件与动画规范
-│   ├── update/                  # 应用内更新检测、下载管理器与安装器组件
-│   ├── userartist/              # 用户关注歌手列表管理
-│   └── userplaylist/            # 用户歌单状态与列表维护
+├── core/                        # Cross-cutting foundational modules
+│   ├── api/                     # HTTP interfaces and base network models
+│   ├── audiometa/               # Audio duration extraction and acoustic analysis
+│   ├── auth/                    # Firebase Authentication and Google Credential Manager
+│   ├── download/                # WorkManager offline download scheduling
+│   ├── importer/                # Universal playlist importer (CSV, ZIP) with size guards
+│   ├── log/                     # AppLogger structured logging and diagnostic handler
+│   ├── lyrics/                  # Syllable-by-syllable TTML lyrics cascade & Accompanist adapter
+│   ├── model/                   # Domain entities (Track, Artist, Album, Playlist)
+│   ├── network/                 # OkHttp factories, logging, and HTTP/2 connection pooling
+│   ├── player/                  # Media3 ExoPlayer audio service, playback queue, and notification
+│   ├── preferences/             # Type-safe AndroidX DataStore preferences
+│   ├── songlike/                # Cloud Firestore reactive liked songs repository
+│   └── ui/                      # Material 3 tokens, SF Pro fonts, and micro-interactions
 │
-├── di/                          # Koin 依赖注入模块（Network, Local, Repository, Player, Update, ViewModel）
+├── di/                          # Koin dependency injection modules
 │
-└── feature/                     # 业务功能域（各自包含 data / domain / ui）
-    ├── account/                 # 账号登录与授权管理
-    ├── artist/                  # 歌手主页、热门单曲与全部专辑
-    ├── cloud/                   # 用户云盘资产管理
-    ├── create/                  # 歌单新建与快捷操作
-    ├── home/                    # 首页聚合流（推荐单曲/歌单、雷达）
-    ├── library/                 # 个人音乐库（分类筛选与检索）
-    ├── listendata/              # 年度/周听歌数据与足迹统计
-    ├── message/                 # 私信与系统通知中心
-    ├── music/                   # 音乐发现 Tab（风格流派与个性化推荐）
-    ├── newworks/                # 新歌首发与数字专辑
-    ├── player/                  # 全屏播放、动态歌词与歌曲详情交互
-    ├── playlist/                # 歌单/专辑详情与音轨列表
-    ├── podcast/                 # 电台播客节目
-    ├── profile/                 # 用户个人主页与听歌排行
-    ├── recent/                  # 最近播放历史记录
-    ├── search/                  # 多模式实时搜索与热搜榜
-    └── settings/                # 主题、音质、网络与缓存配置
+└── feature/                     # Business domain feature packages
+    ├── account/                 # User profile, account management, and social friends
+    ├── artist/                  # Artist discography, albums, and portrait banners
+    ├── home/                    # Daily Artist Hero carousel and curated shelves
+    ├── library/                 # User library (Grid and List layout support)
+    ├── listendata/              # Listening statistics, playtime tracking, and milestones
+    ├── player/                  # Full-screen player with Haze blur, visualizer, and lyrics
+    ├── playlist/                # Playlist and album tracklist with reordering
+    └── search/                  # Real-time search suggestions and audio recognition
 ```
 
 ---
 
 
-## 统一错误处理
 
-Repository 边界统一产出 Kotlin `Result<T>`，异常类型抽象为领域错误模型 `AppError`（包括网络中断、风控拦截、鉴权过期、数据解析失败及业务错误码）。UI 表现层针对不同错误语义分流呈现对应的重试引导或提示。
+## 🤝 Contributing
 
----
-
-## 构建与开发
-
-### 环境要求
-
-- **JDK**：Java 21（推荐 Eclipse Temurin 21）
-- **Gradle**：9.3+（项目内置 Gradle Wrapper 9.3.1）
-- **Android Gradle Plugin (AGP)**：9.1.1+
-- **Android SDK**：Compile / Target SDK 36，Min SDK 26 (Android 8.0+)
-- **IDE**：Android Studio Ladybug (2024.2.1) 或更高版本
-
-### 常用命令
-
-- **调试构建**：
-  ```bash
-  ./gradlew assembleDebug
-  ```
-- **运行单元测试**：
-  ```bash
-  ./gradlew testDebugUnitTest
-  ```
-- **构建 Release 安装包**：
-  ```bash
-  ./gradlew assembleRelease
-  ```
-
-### 混淆与签名说明
-
-- **代码裁剪与混淆**：`release` 构建已开启 R8 压缩与混淆保护。项目对 Retrofit 接口与 `@Serializable` 数据传输类配置了显式 Keep 规则，确保混淆后的运行安全。
-- **签名机制**：签名材料从版本控制外部注入（读取 `local.properties` 或 CI 环境变量）。若未配置正式签名，将自动回退为 Debug 签名，确保本地可编译出可运行的 APK。完整签名与自动化发版配置请参阅 [RELEASE_SIGNING.md](RELEASE_SIGNING.md)。
-- **CI 流水线**：向 `main` 分支推送或提交 PR 时自动触发单元测试与 Release 构建验证；推送版本 Tag 时触发正式签名打包并发布 GitHub Release。
+We welcome community contributions! Please review our **[CONTRIBUTING.md](CONTRIBUTING.md)** and use the provided **[Pull Request Template](.github/PULL_REQUEST_TEMPLATE.md)** before submitting pull requests.
 
 ---
 
-## 非常感谢
+## 📜 Disclaimer
 
-- [NeteaseCloudMusicApi](https://github.com/binaryify/NeteaseCloudMusicApi) - 网易云音乐 API 分析与实现参考
-- [api-enhanced](https://github.com/NeteaseCloudMusicApiEnhanced/api-enhanced) - 增强接口与加密逻辑参考
-- [node-vibrant](https://github.com/Vibrant-Colors/node-vibrant) - 取色算法参考
-- [SPlayer](https://github.com/SPlayer-Dev/SPlayer) - 现代流媒体架构设计启发
-- [Mimikyu](https://mimikyu.com) - 优秀的移动端流媒体交互范式与 UI/UX 体验灵感
-- [SuperLyric](https://github.com/HChenX/SuperLyric) - 系统级实时歌词协议与 AIDL 规范
-- [LyricInfo](https://github.com/limczhh/LyricInfo) - 蓝牙/系统歌词协议规范
-- [Lyricon](https://github.com/proify/Lyricon) - 词幕协议广播规范
+1. Mimikyu is an open-source educational project exploring modern Android native architecture with Jetpack Compose.
+2. Mimikyu does not host, store, or sell any copyright-protected audio files. All audio streams and metadata are resolved dynamically via public internet protocols.
+3. All product names, logos, and brands are property of their respective owners.
 
 ---
 
-## 免责声明
-
-1. 本项目为个人技术交流与 Android 现代原生架构学习研究所用。
-2. 本项目不包含任何商业目的，不提供任何形式的商业变现或增值服务。
-3. 软件中调用的所有音频及元数据均来源于公开网络接口，版权归属于原权利人所有。请在下载安装后 24 小时内删除，严禁用于任何商业用途。
+<div align="center">
+  <sub>Crafted with ❤️ by <a href="https://github.com/szzsuke">szzsuke</a> and open-source contributors.</sub>
+</div>
