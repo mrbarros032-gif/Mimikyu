@@ -24,9 +24,8 @@ object LatinProfile : DefaultLyricsProfile() {
     ): ProfileGroupEffects {
         val duration =
             (units.maxOfOrNull { it.end } ?: 0).toLong() - (units.minOfOrNull { it.start } ?: 0)
-        val timingCount = units.sumOf { it.timing.size }
-        val enabled =
-            !accompaniment && timingCount > 1 && duration >= 1000 && duration / timingCount > 200
+        val timingCount = units.sumOf { it.timing.size }.coerceAtLeast(1)
+        val enabled = !accompaniment && (duration >= 450L || (timingCount > 1 && duration >= 300L))
         return ProfileGroupEffects(scale = enabled, glow = enabled)
     }
 

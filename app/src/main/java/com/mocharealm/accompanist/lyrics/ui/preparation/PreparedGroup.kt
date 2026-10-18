@@ -46,8 +46,8 @@ internal constructor(
     val duration = (end.toLong() - start).toFloat()
     val awesome = effects.scale || effects.glow
     val animationDuration = if (awesome) (duration * 0.8f).coerceAtLeast(1f) else 700f
-    val intensity = ((duration - 200f * units.size) / 1000f).coerceIn(0f, 1f)
-    internal val swell = Swell(0.1 * intensity)
+    val intensity = ((duration - 150f * units.size) / 800f).coerceIn(0f, 1.2f)
+    internal val swell = Swell(0.12 * intensity)
     var pivot = Offset.Zero
         internal set
 }
