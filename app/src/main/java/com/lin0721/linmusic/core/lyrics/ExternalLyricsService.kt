@@ -1056,7 +1056,7 @@ class ExternalLyricsService(
         }.getOrDefault(emptyList())
     }
 
-    private fun saveToDiskCache(
+    fun saveToDiskCache(
         videoId: String?,
         cleanTitle: String,
         cleanArtist: String,
@@ -1074,7 +1074,7 @@ class ExternalLyricsService(
         }
     }
 
-    private fun getDiskCacheFile(
+    fun getDiskCacheFile(
         videoId: String?,
         cleanTitle: String,
         cleanArtist: String

@@ -1228,7 +1228,8 @@ class PlayerManager(
                 songId = item.songId,
                 songName = item.title,
                 artistName = item.artist,
-                coverUrl = item.coverUrl
+                coverUrl = item.coverUrl,
+                videoId = YouTubeIdRegistry.getVideoId(item.songId)
             )
             songDownloadManager.enqueueStreamCache(trackInfo, quality)
         }

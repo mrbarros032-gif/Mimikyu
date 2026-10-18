@@ -172,7 +172,11 @@ class PlayerViewModel(
                 return@launch
             }
             songDownloadManager.enqueueSingle(
-                DownloadTrackInfo(songId, songName, artistName, albumName, coverUrl, albumYear), level
+                DownloadTrackInfo(
+                    songId, songName, artistName, albumName, coverUrl, albumYear,
+                    videoId = YouTubeIdRegistry.getVideoId(songId)
+                ),
+                level
             )
             _toastEvent.emit("Added to download queue")
         }

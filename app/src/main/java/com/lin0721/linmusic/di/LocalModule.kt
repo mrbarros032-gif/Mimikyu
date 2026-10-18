@@ -16,6 +16,7 @@ val localModule = module {
     single { UserPreferences(androidContext()) }
     single { GoogleAuthManager(androidContext(), get()) }
     single { com.lin0721.linmusic.core.firebase.FirestorePlaylistManager() }
+    single { com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore(androidContext()) }
     single { SettingsPreferences(androidContext()) }
     single { ContentFilter(get()) }
     single { ResourceProvider(androidContext()) }

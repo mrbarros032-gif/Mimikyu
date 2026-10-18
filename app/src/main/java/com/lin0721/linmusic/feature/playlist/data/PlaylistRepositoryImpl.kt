@@ -27,10 +27,17 @@ private const val TAG = "PlaylistRepositoryImpl"
  */
 class PlaylistRepositoryImpl(
     private val firestorePlaylistManager: FirestorePlaylistManager? = null,
-    private val metadataEnricher: MetadataEnricher? = null
+    private val metadataEnricher: MetadataEnricher? = null,
+    private val localPlaylistStore: com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore? = null
 ) : PlaylistRepository {
 
     override fun getPlaylistDetail(id: Long): Flow<Result<PlaylistDetail>> = flow {
+        val localDetail = localPlaylistStore?.getPlaylistDetail(id)
+        if (localDetail != null) {
+            emit(Result.success(localDetail))
+            return@flow
+        }
+
         if (firestorePlaylistManager?.isFirebaseUser() == true) {
             val firestoreDetail = firestorePlaylistManager.getPlaylistDetail(id)
             if (firestoreDetail != null) {
@@ -197,6 +204,20 @@ class PlaylistRepositoryImpl(
     }
 
     override fun manipulatePlaylistTracks(op: String, playlistId: Long, trackIds: List<Long>): Flow<Result<Unit>> = flow {
+        if (localPlaylistStore?.getPlaylistDetail(playlistId) != null) {
+            if (op == "del") {
+                localPlaylistStore.removeTracks(playlistId, trackIds)
+            } else if (op == "add") {
+                val tracksToAdd = trackIds.mapNotNull { tid ->
+                    YouTubeIdRegistry.getTrack(tid)
+                }
+                if (tracksToAdd.isNotEmpty()) {
+                    localPlaylistStore.addTracks(playlistId, tracksToAdd)
+                }
+            }
+            emit(Result.success(Unit))
+            return@flow
+        }
         if (firestorePlaylistManager?.isFirebaseUser() == true) {
             val success = firestorePlaylistManager.manipulatePlaylistTracks(op, playlistId, trackIds)
             if (success) {
@@ -221,6 +242,7 @@ class PlaylistRepositoryImpl(
     }
 
     override fun deletePlaylist(playlistId: Long): Flow<Result<Unit>> = flow {
+        localPlaylistStore?.deletePlaylist(playlistId)
         if (firestorePlaylistManager?.isFirebaseUser() == true) {
             firestorePlaylistManager.deletePlaylist(playlistId)
         }

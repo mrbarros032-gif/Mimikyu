@@ -14,6 +14,7 @@ import com.lin0721.linmusic.feature.create.data.CreateRepository
 import com.lin0721.linmusic.core.userplaylist.UserPlaylistRepository
 import com.lin0721.linmusic.feature.library.data.LibraryRepository
 import com.lin0721.linmusic.core.player.PlayerManager
+import com.lin0721.linmusic.core.player.innertube.YouTubeIdRegistry
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus
 import com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent
 import com.lin0721.linmusic.core.network.ResourceProvider
@@ -220,11 +221,10 @@ class LibraryViewModel(
             try {
                 // 1. Playlists
                 val playlistsDeferred = async {
-                    if (profile != null) {
-                        val result = userPlaylistRepository.getUserPlaylists(profile.uid).firstOrNull()
-                        result?.exceptionOrNull()?.let { AppLogger.w(TAG, "Failed to fetch playlists", it) }
-                        result?.getOrNull() ?: emptyList()
-                    } else emptyList()
+                    val uid = profile?.uid ?: 0L
+                    val result = userPlaylistRepository.getUserPlaylists(uid).firstOrNull()
+                    result?.exceptionOrNull()?.let { AppLogger.w(TAG, "Failed to fetch playlists", it) }
+                    result?.getOrNull() ?: emptyList()
                 }
 
                 // 2. Artists: Legacy Chinese artists removed (no unrequested NetEase artist sublist)
@@ -410,14 +410,21 @@ class LibraryViewModel(
         }
     }
 
-    fun createPlaylist(name: String) {
+    fun createPlaylist(name: String, tracks: List<com.lin0721.linmusic.core.model.Track> = emptyList()) {
         viewModelScope.launch {
-            createRepository.createPlaylist(name).collect { result ->
-                result.onSuccess {
-                    loadLibraryData()
-                    _toastEvent.emit("Playlist created successfully!")
-                }.onFailure { e ->
-                    _toastEvent.emit(e.toUserMessage(resourceProvider))
+            val localStore = org.koin.core.context.GlobalContext.get().getOrNull<com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore>()
+            if (localStore != null) {
+                localStore.createPlaylist(name, tracks)
+                loadLibraryData()
+                _toastEvent.emit("Playlist \"$name\" created with ${tracks.size} songs!")
+            } else {
+                createRepository.createPlaylist(name).collect { result ->
+                    result.onSuccess {
+                        loadLibraryData()
+                        _toastEvent.emit("Playlist created successfully!")
+                    }.onFailure { e ->
+                        _toastEvent.emit(e.toUserMessage(resourceProvider))
+                    }
                 }
             }
         }
@@ -554,7 +561,8 @@ class LibraryViewModel(
                             DownloadTrackInfo(
                                 track.id, track.name, track.ar.joinToString("/") { it.name },
                                 track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
-                                yearFromEpochMillis(track.publishTime)
+                                yearFromEpochMillis(track.publishTime),
+                                videoId = YouTubeIdRegistry.getVideoId(track.id)
                             )
                         }
                         songDownloadManager.enqueueBatch(

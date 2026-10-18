@@ -46,7 +46,8 @@ data class Track(
     val publishTime: Long = 0,
     val dt: Long = 0,
     // SongsPlay and Download
-    val privilege: SongPrivilege? = null
+    val privilege: SongPrivilege? = null,
+    val localUri: String? = null
 )
 
 // SongsDetails

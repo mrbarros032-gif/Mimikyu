@@ -20,7 +20,8 @@ data class DownloadTrackInfo(
     val artistName: String,
     val albumName: String = "",
     val coverUrl: String? = null,
-    val albumYear: Int = 0
+    val albumYear: Int = 0,
+    val videoId: String? = null
 )
 
 // Download
@@ -103,7 +104,8 @@ class SongDownloadManager(
         .setInputData(
             SongDownloadWorker.buildInputData(
                 track.songId, track.songName, track.artistName, level,
-                track.albumName, track.coverUrl, track.albumYear, batchTag, batchLabel
+                track.albumName, track.coverUrl, track.albumYear, batchTag, batchLabel,
+                track.videoId
             )
         )
         .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

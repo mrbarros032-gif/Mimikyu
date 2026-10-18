@@ -10,6 +10,7 @@ import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.network.AppError
 import com.lin0721.linmusic.core.network.mapToAppError
 import com.lin0721.linmusic.core.player.domain.LyricLine
+import com.lin0721.linmusic.core.player.domain.LyricParser
 import com.lin0721.linmusic.core.player.innertube.AudioQuality
 import com.lin0721.linmusic.core.player.innertube.InnerTubeXPlayer
 import com.lin0721.linmusic.core.metadata.cleanMetadataText
@@ -17,6 +18,7 @@ import com.lin0721.linmusic.core.player.innertube.YouTubeIdRegistry
 import com.lin0721.linmusic.core.qobuz.QobuzService
 import com.lin0721.linmusic.core.preferences.SettingsPreferences
 import com.lin0721.linmusic.core.auth.UserPreferences
+import java.io.File
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
@@ -150,6 +152,29 @@ class PlaybackRepositoryImpl(
         val cleanTitle = cleanMetadataText(title)
         val cleanArtist = cleanMetadataText(artist)
 
+        // 1. Check local TTML flash disk cache
+        val diskFile = externalLyricsService.getDiskCacheFile(videoId, cleanTitle, cleanArtist)
+        if (diskFile != null && diskFile.exists() && diskFile.length() > 0) {
+            val diskLyrics = runCatching {
+                val parsed = LyricParser.parseTtml(diskFile.readText())
+                if (parsed.isNotEmpty()) parsed else null
+            }.getOrNull()
+            if (diskLyrics != null) {
+                emit(Result.success(diskLyrics))
+                return@flow
+            }
+        }
+
+        // 2. Check local audio file sibling TTML or LRC
+        val localUri = YouTubeIdRegistry.getTrack(songId)?.localUri
+        if (!localUri.isNullOrBlank()) {
+            val localParsed = readLocalSiblingLyrics(localUri)
+            if (!localParsed.isNullOrEmpty()) {
+                emit(Result.success(localParsed))
+                return@flow
+            }
+        }
+
         if (cleanTitle.isBlank()) {
             AppLogger.w(TAG, "No title metadata for songId=$songId, cannot fetch lyrics")
             emit(Result.success(emptyList()))
@@ -170,9 +195,44 @@ class PlaybackRepositoryImpl(
         val videoId = YouTubeIdRegistry.getVideoId(songId)
         val cleanTitle = cleanMetadataText(title)
         val cleanArtist = cleanMetadataText(artist)
+
+        val diskFile = externalLyricsService.getDiskCacheFile(videoId, cleanTitle, cleanArtist)
+        if (diskFile != null && diskFile.exists() && diskFile.length() > 0) {
+            val diskLyrics = runCatching {
+                val parsed = LyricParser.parseTtml(diskFile.readText())
+                if (parsed.isNotEmpty()) parsed else null
+            }.getOrNull()
+            if (diskLyrics != null) return diskLyrics
+        }
+
+        val localUri = YouTubeIdRegistry.getTrack(songId)?.localUri
+        if (!localUri.isNullOrBlank()) {
+            val localParsed = readLocalSiblingLyrics(localUri)
+            if (!localParsed.isNullOrEmpty()) return localParsed
+        }
+
         if (cleanTitle.isBlank()) return null
         return externalLyricsService.getCached(cleanTitle, cleanArtist, durationSec, videoId)
     }
+
+    private fun readLocalSiblingLyrics(uriStr: String): List<LyricLine>? = runCatching {
+        if (uriStr.startsWith("file://") || uriStr.startsWith("/")) {
+            val audioPath = uriStr.removePrefix("file://")
+            val dot = audioPath.lastIndexOf('.')
+            val base = if (dot > 0) audioPath.substring(0, dot) else audioPath
+            val ttmlFile = File("$base.ttml")
+            if (ttmlFile.exists()) {
+                val parsed = LyricParser.parseTtml(ttmlFile.readText())
+                if (parsed.isNotEmpty()) return@runCatching parsed
+            }
+            val lrcFile = File("$base.lrc")
+            if (lrcFile.exists()) {
+                val parsed = LyricParser.parseLrc(lrcFile.readText())
+                if (parsed.isNotEmpty()) return@runCatching parsed
+            }
+        }
+        null
+    }.getOrNull()
 
     override fun getSimilarSongs(songId: Long): Flow<Result<List<Track>>> = flow {
         // Use YouTube Music's related/next endpoint for similar songs

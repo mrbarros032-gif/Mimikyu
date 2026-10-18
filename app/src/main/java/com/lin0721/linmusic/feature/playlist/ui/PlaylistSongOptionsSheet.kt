@@ -156,11 +156,7 @@ fun PlaylistSongOptionsSheet(
                     text = "Add to Playlist",
                     onClick = {
                         onDismiss()
-                        if (!isLoggedIn) {
-                            onRequireLogin()
-                        } else {
-                            onCollectClick(track.id)
-                        }
+                        onCollectClick(track.id)
                     }
                 )
 

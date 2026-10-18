@@ -296,12 +296,7 @@ fun LibraryScreen(
                         }
 
                         MimikyuIconButton(onClick = {
-                            if (userProfile != null) {
-                                showCreateDialog = true
-                            } else {
-                                com.lin0721.linmusic.core.ui.components.ToastManager.showToast("Please log in to create playlists!")
-                                showLoginSheet = true
-                            }
+                            showCreateDialog = true
                         }) {
                             Icon(painter = painterResource(MimikyuIcons.Plus), contentDescription = "Create playlist", tint = MaterialTheme.colorScheme.onSurface)
                         }
@@ -309,13 +304,7 @@ fun LibraryScreen(
                 }
             }
 
-
-            if (userProfile == null) {
-                NotLoggedInView(
-                    onLoginClick = { showLoginSheet = true }
-                )
-            } else {
-                val successState = uiState as? LibraryUiState.Success
+            val successState = uiState as? LibraryUiState.Success
                 // 2.
                 LibraryFilterPillsRow(
                     selectedFilter = selectedFilter,
@@ -483,14 +472,13 @@ fun LibraryScreen(
             }
         }
     }
-}
 
         // CreatePlaylists
         if (showCreateDialog) {
             LibraryCreatePlaylistSheet(
                 onDismiss = { showCreateDialog = false },
-                onCreate = { name ->
-                    viewModel.createPlaylist(name)
+                onCreate = { name, tracks ->
+                    viewModel.createPlaylist(name, tracks)
                     showCreateDialog = false
                 }
             )

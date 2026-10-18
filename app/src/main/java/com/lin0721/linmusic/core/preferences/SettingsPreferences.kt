@@ -53,6 +53,10 @@ class SettingsPreferences(private val context: Context) {
         private val KEY_AUDIOMETA_API_KEY = stringPreferencesKey("audiometa_api_key")
         // Zoho Cloud TTML lyrics base URL (e.g., https://yourdomain.com/ttml)
         private val KEY_ZOHO_LYRICS_BASE_URL = stringPreferencesKey("zoho_lyrics_base_url")
+        // Deezer ARL Token for FLAC Lossless downloads
+        private val KEY_DEEZER_ARL = stringPreferencesKey("deezer_arl")
+        // Tidal Session/API Token for Hi-Res Master FLAC downloads
+        private val KEY_TIDAL_TOKEN = stringPreferencesKey("tidal_token")
 
         // Autoplay recommended songs， true
         private val KEY_AUTO_PLAY_NEXT = booleanPreferencesKey("auto_play_next")
@@ -590,6 +594,26 @@ class SettingsPreferences(private val context: Context) {
     suspend fun saveZohoLyricsBaseUrl(url: String) {
         context.settingsDataStore.edit { prefs ->
             prefs[KEY_ZOHO_LYRICS_BASE_URL] = url.trim()
+        }
+    }
+
+    val deezerArl: Flow<String> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_DEEZER_ARL] ?: ""
+    }
+
+    suspend fun saveDeezerArl(arl: String) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_DEEZER_ARL] = arl.trim()
+        }
+    }
+
+    val tidalToken: Flow<String> = context.settingsDataStore.data.map { prefs ->
+        prefs[KEY_TIDAL_TOKEN] ?: ""
+    }
+
+    suspend fun saveTidalToken(token: String) {
+        context.settingsDataStore.edit { prefs ->
+            prefs[KEY_TIDAL_TOKEN] = token.trim()
         }
     }
 

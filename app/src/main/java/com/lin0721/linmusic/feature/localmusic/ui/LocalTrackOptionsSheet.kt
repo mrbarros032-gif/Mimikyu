@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Info
@@ -56,6 +57,7 @@ fun LocalTrackOptionsSheet(
     onDismiss: () -> Unit,
     onPlayClick: () -> Unit,
     onPlayNextClick: () -> Unit,
+    onAddToPlaylistClick: (() -> Unit)? = null,
     onShareClick: () -> Unit,
     onDetailClick: () -> Unit,
     onDeleteClick: () -> Unit
@@ -129,6 +131,11 @@ fun LocalTrackOptionsSheet(
             }
             SheetOptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistPlay, label = "Play Next") {
                 runThenHide(onPlayNextClick)
+            }
+            if (onAddToPlaylistClick != null) {
+                SheetOptionRow(icon = Icons.AutoMirrored.Rounded.PlaylistAdd, label = "Add to Playlist") {
+                    runThenHide(onAddToPlaylistClick)
+                }
             }
             SheetOptionRow(icon = Icons.Rounded.Share, label = "Share File") {
                 runThenHide(onShareClick)
