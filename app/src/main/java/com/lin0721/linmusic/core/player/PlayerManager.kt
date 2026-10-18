@@ -508,8 +508,17 @@ class PlayerManager(
         fetchUrlAndPlay(targetIndex, startPosition.coerceAtLeast(0L))
     }
 
+    private var lastPlayNextMs = 0L
+    private var lastPlayPrevMs = 0L
+
     fun playNext() {
         if (playbackQueue.isEmpty) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastPlayNextMs < 350L) {
+            AppLogger.w(TAG, "playNext debounced: called again within ${now - lastPlayNextMs}ms")
+            return
+        }
+        lastPlayNextMs = now
         consecutiveErrors = 0
         val curIdx = playbackQueue.currentIndex.value
         val nextIdx = playbackQueue.nextIndex()
@@ -552,6 +561,12 @@ class PlayerManager(
 
     fun playPrevious() {
         if (playbackQueue.isEmpty) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastPlayPrevMs < 350L) {
+            AppLogger.w(TAG, "playPrevious debounced: called again within ${now - lastPlayPrevMs}ms")
+            return
+        }
+        lastPlayPrevMs = now
         val position = controllerHolder.currentPosition
         if (position > 3000) {
             seekTo(0)

@@ -439,11 +439,17 @@ class MimikyuPlaybackService : MediaSessionService() {
             when (playerCommand) {
                 Player.COMMAND_SEEK_TO_NEXT,
                 Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
+                    if (crossfadePlayer?.hasNextMediaItem() == true) {
+                        return super.onPlayerCommandRequest(session, controller, playerCommand)
+                    }
                     playerManager.playNext()
                     return SessionResult.RESULT_SUCCESS
                 }
                 Player.COMMAND_SEEK_TO_PREVIOUS,
                 Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
+                    if (crossfadePlayer?.hasPreviousMediaItem() == true) {
+                        return super.onPlayerCommandRequest(session, controller, playerCommand)
+                    }
                     playerManager.playPrevious()
                     return SessionResult.RESULT_SUCCESS
                 }
