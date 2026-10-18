@@ -231,10 +231,13 @@ fun PlaylistScreen(
                 val profile = userProfile
                 val isLikedSongsPlaylistView = profile != null &&
                     isLikedSongsPlaylist(state.playlist.name, state.playlist.id, profile.uid)
-                val isOwnedPlaylist = profile != null &&
-                    state.playlist.id > 0L &&
-                    state.playlist.creator?.userId == profile.uid &&
-                    !isLikedSongsPlaylistView
+                val isOwnedPlaylist = !isLikedSongsPlaylistView && (
+                    state.playlist.isEditable ||
+                    state.playlist.creator?.nickname == "My Playlist" ||
+                    state.playlist.description?.contains("Imported playlist", ignoreCase = true) == true ||
+                    (profile != null && state.playlist.id > 0L && state.playlist.creator?.userId == profile.uid) ||
+                    (state.playlist.id > 0L && com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore.isCustomPlaylist(state.playlist.id))
+                )
                 val isShuffleActive = playMode == PlayMode.SHUFFLE
                 // CurrentPlayQueue of Playlists（playContext  of Playlists）
                 val isThisPlaylistContext = playContext == state.playlist.name

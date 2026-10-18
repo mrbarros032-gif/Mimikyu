@@ -28,20 +28,21 @@ private const val TAG = "PlaylistRepositoryImpl"
 class PlaylistRepositoryImpl(
     private val firestorePlaylistManager: FirestorePlaylistManager? = null,
     private val metadataEnricher: MetadataEnricher? = null,
-    private val localPlaylistStore: com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore? = null
+    private val localPlaylistStore: com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore? = null,
+    private val playlistMutationBus: com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus? = null
 ) : PlaylistRepository {
 
     override fun getPlaylistDetail(id: Long): Flow<Result<PlaylistDetail>> = flow {
         val localDetail = localPlaylistStore?.getPlaylistDetail(id)
         if (localDetail != null) {
-            emit(Result.success(localDetail))
+            emit(Result.success(localDetail.copy(isEditable = true)))
             return@flow
         }
 
         if (firestorePlaylistManager?.isFirebaseUser() == true) {
             val firestoreDetail = firestorePlaylistManager.getPlaylistDetail(id)
             if (firestoreDetail != null) {
-                emit(Result.success(firestoreDetail))
+                emit(Result.success(firestoreDetail.copy(isEditable = true)))
                 return@flow
             }
         }
@@ -214,20 +215,15 @@ class PlaylistRepositoryImpl(
                 if (tracksToAdd.isNotEmpty()) {
                     localPlaylistStore.addTracks(playlistId, tracksToAdd)
                 }
+            } else if (op == "update") {
+                localPlaylistStore.updateTrackOrder(playlistId, trackIds)
             }
-            emit(Result.success(Unit))
-            return@flow
         }
         if (firestorePlaylistManager?.isFirebaseUser() == true) {
-            val success = firestorePlaylistManager.manipulatePlaylistTracks(op, playlistId, trackIds)
-            if (success) {
-                emit(Result.success(Unit))
-            } else {
-                emit(Result.failure(Exception("Failed to update playlist tracks")))
-            }
-        } else {
-            emit(Result.success(Unit))
+            firestorePlaylistManager.manipulatePlaylistTracks(op, playlistId, trackIds)
         }
+        playlistMutationBus?.tryEmit(com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent.Updated(playlistId))
+        emit(Result.success(Unit))
     }
 
     override fun renamePlaylist(playlistId: Long, name: String): Flow<Result<Unit>> = flow {

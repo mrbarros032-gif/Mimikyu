@@ -256,6 +256,7 @@ fun PlaylistContent(
                         onMoreClick         = onMoreClick,
                         isLikedSongsPlaylistView = isLikedSongsPlaylistView,
                         isOwnedPlaylist     = canRemoveFromPlaylist,
+                        onAddMusicClick     = onAddMusicClick,
                         onShareClick        = onShareClick,
                         onDownloadClick     = onDownloadClick,
                         onAddToQueueClick   = {

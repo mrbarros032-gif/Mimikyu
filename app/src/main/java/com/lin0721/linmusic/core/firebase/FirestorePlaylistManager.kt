@@ -10,6 +10,8 @@ import com.lin0721.linmusic.core.model.PlaylistDetail
 import com.lin0721.linmusic.core.model.PlaylistTrackId
 import com.lin0721.linmusic.core.model.Track
 import com.lin0721.linmusic.core.userplaylist.UserPlaylist
+import com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore
+import com.lin0721.linmusic.core.player.innertube.YouTubeIdRegistry
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -44,6 +46,7 @@ class FirestorePlaylistManager {
                 val creatorName = doc.getString("creatorNickname") ?: auth.currentUser?.displayName.orEmpty()
                 val creatorAvatar = doc.getString("creatorAvatar") ?: auth.currentUser?.photoUrl?.toString().orEmpty()
 
+                LocalCustomPlaylistStore.registerCustomPlaylistId(id)
                 UserPlaylist(
                     id = id,
                     name = name,
@@ -88,6 +91,7 @@ class FirestorePlaylistManager {
             val creatorName = doc.getString("creatorNickname") ?: auth.currentUser?.displayName.orEmpty()
             val creatorAvatar = doc.getString("creatorAvatar") ?: auth.currentUser?.photoUrl?.toString().orEmpty()
 
+            LocalCustomPlaylistStore.registerCustomPlaylistId(playlistId)
             PlaylistDetail(
                 id = playlistId,
                 name = name,
@@ -98,7 +102,8 @@ class FirestorePlaylistManager {
                 creator = PlaylistCreator(nickname = creatorName, avatarUrl = creatorAvatar),
                 tracks = tracks,
                 trackCount = trackCount,
-                trackIds = trackIds
+                trackIds = trackIds,
+                isEditable = true
             )
         } catch (e: Exception) {
             AppLogger.e(TAG, "Error getting playlist detail from Firestore", e)
@@ -141,6 +146,7 @@ class FirestorePlaylistManager {
                 .broadcastActivity("playlist", name.trim(), "Playlist")
         }
 
+        LocalCustomPlaylistStore.registerCustomPlaylistId(playlistId)
         return PlaylistDetail(
             id = playlistId,
             name = name.trim(),
@@ -148,7 +154,8 @@ class FirestorePlaylistManager {
             creator = PlaylistCreator(nickname = creatorName, avatarUrl = creatorAvatar),
             trackCount = 0,
             tracks = emptyList(),
-            trackIds = emptyList()
+            trackIds = emptyList(),
+            isEditable = true
         )
     }
 
@@ -190,6 +197,7 @@ class FirestorePlaylistManager {
             AppLogger.i(TAG, "Created playlist $name ($playlistId) with ${tracks.size} tracks in Firestore")
         }
 
+        LocalCustomPlaylistStore.registerCustomPlaylistId(playlistId)
         return PlaylistDetail(
             id = playlistId,
             name = name.trim(),
@@ -198,7 +206,8 @@ class FirestorePlaylistManager {
             creator = PlaylistCreator(nickname = creatorName, avatarUrl = creatorAvatar),
             trackCount = tracks.size,
             tracks = tracks,
-            trackIds = tracks.map { PlaylistTrackId(it.id) }
+            trackIds = tracks.map { PlaylistTrackId(it.id) },
+            isEditable = true
         )
     }
 
@@ -249,12 +258,20 @@ class FirestorePlaylistManager {
                 val existingIds = currentTracks.map { it.id }.toSet()
                 trackIds.forEach { id ->
                     if (!existingIds.contains(id)) {
-                        currentTracks.add(Track(id = id, name = "Track #$id"))
+                        val track = YouTubeIdRegistry.getTrack(id) ?: Track(id = id, name = "Track #$id")
+                        currentTracks.add(track)
                     }
                 }
             } else if (op == "del") {
                 val toRemove = trackIds.toSet()
                 currentTracks.removeAll { toRemove.contains(it.id) }
+            } else if (op == "update") {
+                val trackMap = currentTracks.associateBy { it.id }
+                val reordered = trackIds.mapNotNull { trackMap[it] }
+                if (reordered.isNotEmpty()) {
+                    currentTracks.clear()
+                    currentTracks.addAll(reordered)
+                }
             }
 
             val updatedJson = json.encodeToString(currentTracks.toList())

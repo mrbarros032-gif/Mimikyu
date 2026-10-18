@@ -81,7 +81,8 @@ data class PlaylistDetail(
     // PlaylistsSearch（cloudsearch type=1000），Details tracks ，，
     val trackCount: Int = 0,
     // id ；playlist/detail  of  tracks （1000）， song/detail
-    val trackIds: List<PlaylistTrackId> = emptyList()
+    val trackIds: List<PlaylistTrackId> = emptyList(),
+    val isEditable: Boolean = false
 )
 
 @Serializable

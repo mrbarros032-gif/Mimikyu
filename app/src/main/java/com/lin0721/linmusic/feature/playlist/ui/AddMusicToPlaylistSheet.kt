@@ -63,6 +63,15 @@ import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.MimikyuSpacing
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import com.lin0721.linmusic.core.localmusic.LocalTrack
+import com.lin0721.linmusic.core.localmusic.LocalMusicRepository
+import com.lin0721.linmusic.core.player.innertube.YouTubeIdRegistry
+import androidx.compose.runtime.LaunchedEffect
+
+enum class AddMusicSource { YOUTUBE, LOCAL }
+
 // SearchAdd
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +90,21 @@ fun AddMusicToPlaylistSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val focusManager = LocalFocusManager.current
     var addingTrackIds by remember { mutableStateOf(setOf<Long>()) }
+    var selectedSource by remember { mutableStateOf(AddMusicSource.YOUTUBE) }
+
+    val localMusicRepo = remember {
+        org.koin.core.context.GlobalContext.get().getOrNull<LocalMusicRepository>()
+    }
+    var localTracks by remember { mutableStateOf<List<LocalTrack>>(emptyList()) }
+    var isLoadingLocal by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedSource) {
+        if (selectedSource == AddMusicSource.LOCAL && localTracks.isEmpty()) {
+            isLoadingLocal = true
+            localTracks = localMusicRepo?.scan().orEmpty()
+            isLoadingLocal = false
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -98,12 +122,12 @@ fun AddMusicToPlaylistSheet(
                 .fillMaxSize()
                 .navigationBarsPadding()
         ) {
-            // ： and Close
+            // Header and Close
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = MimikyuSpacing.md)
-                    .padding(bottom = MimikyuSpacing.sm),
+                    .padding(bottom = MimikyuSpacing.xs),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -122,7 +146,37 @@ fun AddMusicToPlaylistSheet(
                 }
             }
 
-            // Search
+            // Source Selector Tabs (YouTube Music & Device Library)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = MimikyuSpacing.md)
+                    .padding(bottom = MimikyuSpacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = selectedSource == AddMusicSource.YOUTUBE,
+                    onClick = { selectedSource = AddMusicSource.YOUTUBE },
+                    label = { Text("YouTube Music", fontSize = 13.sp) },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+                FilterChip(
+                    selected = selectedSource == AddMusicSource.LOCAL,
+                    onClick = { selectedSource = AddMusicSource.LOCAL },
+                    label = { Text("Device Library", fontSize = 13.sp) },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            }
+
+            // Search Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -152,7 +206,11 @@ fun AddMusicToPlaylistSheet(
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (searchQuery.isEmpty()) {
-                                Text("Search songs to add", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                                Text(
+                                    if (selectedSource == AddMusicSource.YOUTUBE) "Search songs on YouTube" else "Search songs in device library",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp
+                                )
                             }
                             inner()
                         }
@@ -174,61 +232,17 @@ fun AddMusicToPlaylistSheet(
                 }
             }
 
-            // Search
-            when (searchState) {
-                is AddMusicSearchState.Idle -> {
-                    if (recommendedSongs.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Type keywords to search songs",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 14.sp
-                            )
-                        }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentPadding = PaddingValues(bottom = MimikyuSpacing.md)
-                        ) {
-                            item(key = "recommend_header") {
-                                Text(
-                                    text = "Recommended Songs",
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(
-                                        horizontal = MimikyuSpacing.md,
-                                        vertical = MimikyuSpacing.sm
-                                    )
-                                )
-                            }
-                            items(items = recommendedSongs, key = { "rec_${it.id}" }) { track ->
-                                val isAdded = existingTrackIds.contains(track.id)
-                                val isAdding = addingTrackIds.contains(track.id)
-
-                                AddTrackRow(
-                                    track = track,
-                                    isAdded = isAdded,
-                                    isAdding = isAdding,
-                                    onAdd = {
-                                        addingTrackIds = addingTrackIds + track.id
-                                        onAddTrack(track) {
-                                            addingTrackIds = addingTrackIds - track.id
-                                        }
-                                    }
-                                )
-                            }
-                        }
+            if (selectedSource == AddMusicSource.LOCAL) {
+                val filteredLocal = remember(localTracks, searchQuery) {
+                    if (searchQuery.isBlank()) localTracks
+                    else localTracks.filter {
+                        it.title.contains(searchQuery, ignoreCase = true) ||
+                        it.artist.contains(searchQuery, ignoreCase = true) ||
+                        (it.album?.contains(searchQuery, ignoreCase = true) == true)
                     }
                 }
-                is AddMusicSearchState.Loading -> {
+
+                if (isLoadingLocal) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -241,58 +255,178 @@ fun AddMusicToPlaylistSheet(
                             strokeWidth = 3.dp
                         )
                     }
-                }
-                is AddMusicSearchState.Error -> {
+                } else if (filteredLocal.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
-                            .padding(horizontal = MimikyuSpacing.md),
+                            .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = searchState.message,
-                            color = MaterialTheme.colorScheme.error,
+                            text = if (searchQuery.isBlank()) "No audio files found on device" else "No matching local songs",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp
                         )
                     }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(bottom = MimikyuSpacing.md)
+                    ) {
+                        item(key = "local_header") {
+                            Text(
+                                text = "Device Audio Files (${filteredLocal.size})",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(
+                                    horizontal = MimikyuSpacing.md,
+                                    vertical = MimikyuSpacing.sm
+                                )
+                            )
+                        }
+                        items(items = filteredLocal, key = { "local_${it.mediaStoreId}_${it.songId ?: 0}" }) { localItem ->
+                            val track = remember(localItem) { localItem.toPlaylistTrack() }
+                            val isAdded = existingTrackIds.contains(track.id)
+                            val isAdding = addingTrackIds.contains(track.id)
+
+                            AddTrackRow(
+                                track = track,
+                                isAdded = isAdded,
+                                isAdding = isAdding,
+                                onAdd = {
+                                    addingTrackIds = addingTrackIds + track.id
+                                    onAddTrack(track) {
+                                        addingTrackIds = addingTrackIds - track.id
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
-                is AddMusicSearchState.Success -> {
-                    if (searchState.tracks.isEmpty()) {
+            } else {
+                // YouTube Search Results
+                when (searchState) {
+                    is AddMusicSearchState.Idle -> {
+                        if (recommendedSongs.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Type keywords to search songs",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentPadding = PaddingValues(bottom = MimikyuSpacing.md)
+                            ) {
+                                item(key = "recommend_header") {
+                                    Text(
+                                        text = "Recommended Songs",
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(
+                                            horizontal = MimikyuSpacing.md,
+                                            vertical = MimikyuSpacing.sm
+                                        )
+                                    )
+                                }
+                                items(items = recommendedSongs, key = { "rec_${it.id}" }) { track ->
+                                    val isAdded = existingTrackIds.contains(track.id)
+                                    val isAdding = addingTrackIds.contains(track.id)
+
+                                    AddTrackRow(
+                                        track = track,
+                                        isAdded = isAdded,
+                                        isAdding = isAdding,
+                                        onAdd = {
+                                            addingTrackIds = addingTrackIds + track.id
+                                            onAddTrack(track) {
+                                                addingTrackIds = addingTrackIds - track.id
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    is AddMusicSearchState.Loading -> {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
                             contentAlignment = Alignment.Center
                         ) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(36.dp),
+                                strokeWidth = 3.dp
+                            )
+                        }
+                    }
+                    is AddMusicSearchState.Error -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(horizontal = MimikyuSpacing.md),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
-                                text = "No songs found",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = searchState.message,
+                                color = MaterialTheme.colorScheme.error,
                                 fontSize = 14.sp
                             )
                         }
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            contentPadding = PaddingValues(bottom = MimikyuSpacing.md)
-                        ) {
-                            items(items = searchState.tracks, key = { it.id }) { track ->
-                                val isAdded = existingTrackIds.contains(track.id)
-                                val isAdding = addingTrackIds.contains(track.id)
-
-                                AddTrackRow(
-                                    track = track,
-                                    isAdded = isAdded,
-                                    isAdding = isAdding,
-                                    onAdd = {
-                                        addingTrackIds = addingTrackIds + track.id
-                                        onAddTrack(track) {
-                                            addingTrackIds = addingTrackIds - track.id
-                                        }
-                                    }
+                    }
+                    is AddMusicSearchState.Success -> {
+                        if (searchState.tracks.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No songs found",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp
                                 )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentPadding = PaddingValues(bottom = MimikyuSpacing.md)
+                            ) {
+                                items(items = searchState.tracks, key = { it.id }) { track ->
+                                    val isAdded = existingTrackIds.contains(track.id)
+                                    val isAdding = addingTrackIds.contains(track.id)
+
+                                    AddTrackRow(
+                                        track = track,
+                                        isAdded = isAdded,
+                                        isAdding = isAdding,
+                                        onAdd = {
+                                            addingTrackIds = addingTrackIds + track.id
+                                            onAddTrack(track) {
+                                                addingTrackIds = addingTrackIds - track.id
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -402,3 +536,20 @@ private fun AddTrackRow(
         }
     }
 }
+
+private fun LocalTrack.toPlaylistTrack(): Track {
+    val tid = songId?.takeIf { it > 0 } ?: (mediaStoreId.takeIf { it > 0 } ?: (title.hashCode().toLong() and 0x7FFFFFFF))
+    val placeholder = YouTubeIdRegistry.registerPlaceholder(
+        title = title,
+        artist = artist,
+        album = album.orEmpty()
+    )
+    val converted = placeholder.copy(
+        id = tid,
+        name = title,
+        fee = 0
+    )
+    YouTubeIdRegistry.registerTrack(converted)
+    return converted
+}
+

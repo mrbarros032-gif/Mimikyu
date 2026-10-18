@@ -80,6 +80,7 @@ fun PlaylistHeaderItem(
     isLikedSongsPlaylistView: Boolean = false,
     isOwnedPlaylist: Boolean = false,
     isAlbum: Boolean = false,
+    onAddMusicClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
     onDownloadClick: () -> Unit = {},
     onAddToQueueClick: () -> Unit = {},
@@ -378,15 +379,26 @@ fun PlaylistHeaderItem(
                     horizontalArrangement = Arrangement.spacedBy(24.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. Add to playlist / library (Plus circle / Check circle)
-                    Icon(
-                        painter = painterResource(if (isSubscribed) MimikyuIcons.CheckCircle else MimikyuIcons.PlusCircle),
-                        contentDescription = if (isSubscribed) "Added to your library" else "Add to library",
-                        tint = if (isSubscribed) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.72f),
-                        modifier = Modifier
-                            .size(24.dp)
-                            .pressable(MimikyuPress.Icon) { onSubscribeClick() }
-                    )
+                    // 1. Add songs (if owned/created/imported) or Save/Subscribe (if external)
+                    if (isOwnedPlaylist) {
+                        Icon(
+                            painter = painterResource(MimikyuIcons.PlusCircle),
+                            contentDescription = "Add songs to playlist",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier
+                                .size(24.dp)
+                                .pressable(MimikyuPress.Icon) { onAddMusicClick() }
+                        )
+                    } else if (!isLikedSongsPlaylistView) {
+                        Icon(
+                            painter = painterResource(if (isSubscribed) MimikyuIcons.CheckCircle else MimikyuIcons.PlusCircle),
+                            contentDescription = if (isSubscribed) "Added to your library" else "Add to library",
+                            tint = if (isSubscribed) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.72f),
+                            modifier = Modifier
+                                .size(24.dp)
+                                .pressable(MimikyuPress.Icon) { onSubscribeClick() }
+                        )
+                    }
 
                     // 2. Download icon
                     Icon(

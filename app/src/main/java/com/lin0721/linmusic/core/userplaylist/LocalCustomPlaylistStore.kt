@@ -26,6 +26,14 @@ data class StoredCustomPlaylist(
 )
 
 class LocalCustomPlaylistStore(private val context: Context) {
+    companion object {
+        private val customPlaylistIds = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
+
+        fun isCustomPlaylist(id: Long): Boolean = customPlaylistIds.contains(id)
+        fun registerCustomPlaylistId(id: Long) { customPlaylistIds.add(id) }
+        fun unregisterCustomPlaylistId(id: Long) { customPlaylistIds.remove(id) }
+    }
+
     private val file = File(context.filesDir, "custom_playlists.json")
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
@@ -55,14 +63,30 @@ class LocalCustomPlaylistStore(private val context: Context) {
                 updateTime = System.currentTimeMillis()
             )
             list.add(0, newPlaylist)
+            customPlaylistIds.add(id)
             saveToDisk(list)
             newPlaylist.toPlaylistDetail()
+        }
+    }
+
+    suspend fun saveOrUpdatePlaylist(playlist: StoredCustomPlaylist) = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val list = loadFromDisk().toMutableList()
+            val idx = list.indexOfFirst { it.id == playlist.id }
+            if (idx >= 0) {
+                list[idx] = playlist
+            } else {
+                list.add(0, playlist)
+            }
+            customPlaylistIds.add(playlist.id)
+            saveToDisk(list)
         }
     }
 
     suspend fun deletePlaylist(id: Long) = mutex.withLock {
         withContext(Dispatchers.IO) {
             val list = loadFromDisk().filterNot { it.id == id }
+            customPlaylistIds.remove(id)
             saveToDisk(list)
         }
     }
@@ -72,7 +96,8 @@ class LocalCustomPlaylistStore(private val context: Context) {
             val list = loadFromDisk().map { pl ->
                 if (pl.id == id) {
                     val combined = (pl.tracks + newTracks).distinctBy { it.id }
-                    pl.copy(tracks = combined, updateTime = System.currentTimeMillis())
+                    val cover = pl.coverImgUrl.ifBlank { combined.firstOrNull()?.al?.picUrl.orEmpty() }
+                    pl.copy(tracks = combined, coverImgUrl = cover, updateTime = System.currentTimeMillis())
                 } else pl
             }
             saveToDisk(list)
@@ -91,11 +116,28 @@ class LocalCustomPlaylistStore(private val context: Context) {
         }
     }
 
+    suspend fun updateTrackOrder(id: Long, trackIds: List<Long>) = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val list = loadFromDisk().map { pl ->
+                if (pl.id == id) {
+                    val trackMap = pl.tracks.associateBy { it.id }
+                    val reordered = trackIds.mapNotNull { trackMap[it] }
+                    pl.copy(tracks = reordered, updateTime = System.currentTimeMillis())
+                } else pl
+            }
+            saveToDisk(list)
+        }
+    }
+
     private fun loadFromDisk(): List<StoredCustomPlaylist> {
         if (!file.exists()) return emptyList()
         return runCatching {
             val text = file.readText()
-            if (text.isBlank()) emptyList() else json.decodeFromString<List<StoredCustomPlaylist>>(text)
+            if (text.isBlank()) emptyList() else {
+                val parsed = json.decodeFromString<List<StoredCustomPlaylist>>(text)
+                parsed.forEach { customPlaylistIds.add(it.id) }
+                parsed
+            }
         }.getOrElse {
             AppLogger.e("LocalCustomPlaylistStore", "Failed to parse custom_playlists.json", it)
             emptyList()
@@ -131,6 +173,7 @@ class LocalCustomPlaylistStore(private val context: Context) {
         creator = PlaylistCreator(userId = 0L, nickname = "My Playlist", avatarUrl = ""),
         tracks = tracks,
         trackCount = tracks.size,
-        trackIds = tracks.map { PlaylistTrackId(it.id) }
+        trackIds = tracks.map { PlaylistTrackId(it.id) },
+        isEditable = true
     )
 }
