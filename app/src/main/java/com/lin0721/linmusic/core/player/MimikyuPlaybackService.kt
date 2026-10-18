@@ -3,14 +3,19 @@ package com.lin0721.linmusic.core.player
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.IconCompat
 import androidx.media.app.NotificationCompat as MediaNotificationCompat
 import androidx.media3.common.AudioAttributes
@@ -72,6 +77,77 @@ class MimikyuPlaybackService : MediaSessionService() {
     private var sessionActivityPendingIntent: PendingIntent? = null
     private var currentCoverBitmap: Bitmap? = null
     private var notificationCallback: MediaNotification.Provider.Callback? = null
+
+    private val audioManager by lazy { getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    private var audioFocusRequest: AudioFocusRequest? = null
+    private var isPlayingWithOtherApps: Boolean = false
+    private var hasAudioFocus: Boolean = false
+    private var isBecomingNoisyRegistered: Boolean = false
+
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                AppLogger.i(TAG, "Audio focus lost ($focusChange). Pausing playback immediately.")
+                hasAudioFocus = false
+                crossfadePlayer?.pause()
+                playerManager.pause()
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                // IMPORTANT: When external audio ends, reels pause, or camera/call closes,
+                // do NOT auto-resume playback. Keep music paused until the user explicitly hits play.
+                AppLogger.i(TAG, "Audio focus regained ($focusChange). Keeping playback paused.")
+                hasAudioFocus = true
+            }
+        }
+    }
+
+    private val becomingNoisyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                AppLogger.i(TAG, "Headphones disconnected (ACTION_AUDIO_BECOMING_NOISY). Pausing playback.")
+                crossfadePlayer?.pause()
+                playerManager.pause()
+            }
+        }
+    }
+
+    private fun requestAppAudioFocus(): Boolean {
+        if (isPlayingWithOtherApps) return true
+        if (hasAudioFocus) return true
+
+        val playbackAttributes = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
+
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(playbackAttributes)
+            .setAcceptsDelayedFocusGain(false)
+            .setOnAudioFocusChangeListener(audioFocusChangeListener)
+            .build()
+
+        audioFocusRequest = request
+        val result = audioManager.requestAudioFocus(request)
+        return if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            hasAudioFocus = true
+            true
+        } else {
+            AppLogger.w(TAG, "Audio focus request denied: $result")
+            hasAudioFocus = false
+            false
+        }
+    }
+
+    private fun abandonAppAudioFocus() {
+        if (!hasAudioFocus) return
+        audioFocusRequest?.let { request ->
+            audioManager.abandonAudioFocusRequest(request)
+            audioFocusRequest = null
+        }
+        hasAudioFocus = false
+    }
 
     private fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -229,9 +305,28 @@ class MimikyuPlaybackService : MediaSessionService() {
             }
         }
 
+        try {
+            val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+            ContextCompat.registerReceiver(
+                this,
+                becomingNoisyReceiver,
+                filter,
+                ContextCompat.RECEIVER_EXPORTED
+            )
+            isBecomingNoisyRegistered = true
+        } catch (e: Exception) {
+            AppLogger.w(TAG, "Failed to register becomingNoisyReceiver", e)
+        }
+
         serviceScope.launch {
             settingsPreferences.playWithOtherApps.collect { playWithOtherApps ->
+                isPlayingWithOtherApps = playWithOtherApps
                 sessionPlayer.setHandleAudioFocus(!playWithOtherApps)
+                if (playWithOtherApps) {
+                    abandonAppAudioFocus()
+                } else if (sessionPlayer.playWhenReady) {
+                    requestAppAudioFocus()
+                }
             }
         }
 
@@ -278,14 +373,20 @@ class MimikyuPlaybackService : MediaSessionService() {
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 super.onPlayWhenReadyChanged(playWhenReady, reason)
-                if (!playWhenReady) {
+                if (playWhenReady) {
+                    val granted = requestAppAudioFocus()
+                    if (!granted && !isPlayingWithOtherApps) {
+                        sessionPlayer.pause()
+                        playerManager.pause()
+                    }
+                    externalInterruptionResumeController.onPlaybackStarted()
+                } else {
+                    abandonAppAudioFocus()
                     if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) {
                         externalInterruptionResumeController.onAudioFocusLoss()
                     } else {
                         externalInterruptionResumeController.onUserOrSystemPause()
                     }
-                } else {
-                    externalInterruptionResumeController.onPlaybackStarted()
                 }
             }
         })
@@ -304,6 +405,15 @@ class MimikyuPlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         AppLogger.i(TAG, "Service onDestroy instanceId=${System.identityHashCode(this)}")
+        if (isBecomingNoisyRegistered) {
+            try {
+                unregisterReceiver(becomingNoisyReceiver)
+            } catch (e: Exception) {
+                AppLogger.w(TAG, "Failed to unregister becomingNoisyReceiver", e)
+            }
+            isBecomingNoisyRegistered = false
+        }
+        abandonAppAudioFocus()
         externalInterruptionResumeController.release()
         externalLyricCoordinator.onMetadataChanged = null
         externalLyricCoordinator.release()

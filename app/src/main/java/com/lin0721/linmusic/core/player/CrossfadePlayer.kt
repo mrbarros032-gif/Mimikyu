@@ -62,7 +62,7 @@ class CrossfadePlayer(
     }
 
     init {
-        primary.setAudioAttributes(audioAttributes, handleAudioFocus)
+        primary.setAudioAttributes(audioAttributes, false)
         secondary.setAudioAttributes(audioAttributes, false)
         val internalListener = InternalListener()
         primary.addListener(internalListener)
@@ -71,7 +71,7 @@ class CrossfadePlayer(
 
     fun setHandleAudioFocus(handle: Boolean) {
         handleAudioFocus = handle
-        active.setAudioAttributes(audioAttributes, handle)
+        active.setAudioAttributes(audioAttributes, false)
     }
 
     fun setPreferredAudioDevice(device: AudioDeviceInfo?) {
@@ -261,7 +261,7 @@ class CrossfadePlayer(
     private fun takeOver(incoming: ExoPlayer) {
         val previous = active
         previous.setAudioAttributes(audioAttributes, false)
-        incoming.setAudioAttributes(audioAttributes, handleAudioFocus)
+        incoming.setAudioAttributes(audioAttributes, false)
         setPlayer(incoming)
     }
 

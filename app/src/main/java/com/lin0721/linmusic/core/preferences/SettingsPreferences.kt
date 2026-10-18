@@ -258,7 +258,7 @@ class SettingsPreferences(private val context: Context) {
 
     // Resume after external audio stops Flow
     val resumeAfterExternalInterruption: Flow<Boolean> = context.settingsDataStore.data.map { prefs ->
-        prefs[KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION] ?: true
+        prefs[KEY_RESUME_AFTER_EXTERNAL_INTERRUPTION] ?: false
     }
 
     suspend fun saveResumeAfterExternalInterruption(enabled: Boolean) {

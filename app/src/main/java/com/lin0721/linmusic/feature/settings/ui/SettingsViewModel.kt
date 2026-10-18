@@ -67,7 +67,7 @@ class SettingsViewModel(
 
     val playWithOtherApps = settingsPreferences.playWithOtherApps.asState(false)
 
-    val resumeAfterExternalInterruption = settingsPreferences.resumeAfterExternalInterruption.asState(true)
+    val resumeAfterExternalInterruption = settingsPreferences.resumeAfterExternalInterruption.asState(false)
 
     val crossfadeEnabled = settingsPreferences.crossfadeEnabled.asState(false)
 
