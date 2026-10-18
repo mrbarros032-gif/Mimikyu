@@ -171,8 +171,10 @@ class HomeViewModel(
                     freshData.dailyMixes.firstOrNull()?.tracks?.take(3)?.let { topTracks ->
                         playerManager.preResolveTracks(topTracks)
                     }
-                    withContext(Dispatchers.IO) {
-                        homeShelfCacheStore.saveHomeFeed(freshData)
+                    if (freshData.shelves.isNotEmpty() || freshData.topMixes.isNotEmpty()) {
+                        withContext(Dispatchers.IO) {
+                            homeShelfCacheStore.saveHomeFeed(freshData)
+                        }
                     }
                 },
                 onFailure = { error ->
@@ -199,8 +201,10 @@ class HomeViewModel(
             result.fold(
                 onSuccess = { freshData ->
                     _uiState.value = HomeUiState.Success(freshData)
-                    withContext(Dispatchers.IO) {
-                        homeShelfCacheStore.saveHomeFeed(freshData)
+                    if (freshData.shelves.isNotEmpty() || freshData.topMixes.isNotEmpty()) {
+                        withContext(Dispatchers.IO) {
+                            homeShelfCacheStore.saveHomeFeed(freshData)
+                        }
                     }
                 },
                 onFailure = { _toastEvent.emit(it.toUserMessage(resourceProvider)) }
@@ -267,6 +271,29 @@ class HomeViewModel(
                         madeForYourVibe = mimikyuShelves?.madeForYourVibe.orEmpty(),
                         nextCursor = blockPage.nextCursor,
                         hasMore = blockPage.hasMore
+                    )
+                )
+            } else if (mimikyuShelves != null && (mimikyuShelves.topMixes.isNotEmpty() || mimikyuShelves.favoriteArtists.isNotEmpty())) {
+                // If blockPage network call failed or timed out on weak internet, fallback to mimikyu shelves
+                // so the user never sees a broken app state or empty void!
+                Result.success(
+                    HomeFeedData(
+                        shelves = emptyList(),
+                        recommendPlaylists = playlistsResult.getOrNull()?.playlists.orEmpty(),
+                        recentPlaylists = recentResult.getOrDefault(emptyList()),
+                        dailySongs = dailySongsResult.getOrDefault(emptyList()),
+                        toplistItems = toplistResult.getOrDefault(emptyList()),
+                        dailyMixes = mimikyuShelves.topMixes,
+                        topMixes = mimikyuShelves.topMixes,
+                        recommendedStations = mimikyuShelves.recommendedStations,
+                        bestOfArtists = mimikyuShelves.bestOfArtists,
+                        favoriteArtists = mimikyuShelves.favoriteArtists,
+                        moreLikeMixes = mimikyuShelves.moreLikeMixes,
+                        moreLikeArtistName = mimikyuShelves.moreLikeArtistName,
+                        moreLikeArtistCover = mimikyuShelves.moreLikeArtistCover,
+                        madeForYourVibe = mimikyuShelves.madeForYourVibe,
+                        nextCursor = null,
+                        hasMore = false
                     )
                 )
             } else {

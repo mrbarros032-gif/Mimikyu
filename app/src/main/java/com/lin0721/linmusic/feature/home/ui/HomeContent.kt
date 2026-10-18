@@ -1,7 +1,9 @@
 package com.lin0721.linmusic.feature.home.ui
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -59,10 +61,15 @@ fun HomeContent(
                 ) {
 
                     when (uiState) {
-                        is HomeUiState.Loading -> item { LoadingIndicator() }
+                        is HomeUiState.Loading -> item(key = "initial_loading_skeleton") {
+                            HomeWireframeSkeleton(isWeakConnection = false)
+                        }
 
-                        is HomeUiState.Error -> item {
-                            ErrorContent(message = uiState.message, onRetry = onRetry)
+                        is HomeUiState.Error -> item(key = "error_content_state") {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                HomeWireframeSkeleton(isWeakConnection = true)
+                                ErrorContent(message = uiState.message, onRetry = onRetry)
+                            }
                         }
 
                         is HomeUiState.Success -> {
@@ -79,7 +86,20 @@ fun HomeContent(
                                 }
                             }
 
-                            // 2. Main Curated & Recommended Shelves (Curated YouTube Playlists & Curated Music)
+                            // 2. "Your top mixes" (Personalized Daily Mixes & clustered genres)
+                            if (data.topMixes.isNotEmpty()) {
+                                item(key = "top_mixes_shelf") {
+                                    MimikyuMixesShelf(
+                                        title = "Your top mixes",
+                                        items = data.topMixes,
+                                        onPlaylistClick = onPlaylistClick,
+                                        onArtistClick = onArtistClick,
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                                    )
+                                }
+                            }
+
+                            // 3. Main Curated & Recommended Shelves (Curated YouTube Playlists & Curated Music)
                             items(
                                 items = data.shelves,
                                 key = { it.blockCode }
@@ -98,7 +118,34 @@ fun HomeContent(
                                 )
                             }
 
-                            // 3. "Your favourite artists" shelf (circular artist cards at the bottom)
+                            // 4. "Recommended Stations" (Artist radios)
+                            if (data.recommendedStations.isNotEmpty()) {
+                                item(key = "recommended_stations_shelf") {
+                                    MimikyuMixesShelf(
+                                        title = "Recommended Stations",
+                                        items = data.recommendedStations,
+                                        onPlaylistClick = onPlaylistClick,
+                                        onArtistClick = onArtistClick,
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                                    )
+                                }
+                            }
+
+                            // 5. "More Like [Artist]"
+                            if (data.moreLikeMixes.isNotEmpty() && data.moreLikeArtistName.isNotBlank()) {
+                                item(key = "more_like_artist_shelf") {
+                                    MimikyuMoreLikeShelf(
+                                        artistName = data.moreLikeArtistName,
+                                        artistCover = data.moreLikeArtistCover,
+                                        items = data.moreLikeMixes,
+                                        onPlaylistClick = onPlaylistClick,
+                                        onArtistClick = onArtistClick,
+                                        modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
+                                    )
+                                }
+                            }
+
+                            // 6. "Artists you might like" shelf (circular artist cards)
                             if (data.favoriteArtists.isNotEmpty()) {
                                 item(key = "favorite_artists_shelf") {
                                     MimikyuFavoriteArtistsShelf(
@@ -109,6 +156,12 @@ fun HomeContent(
                                 }
                             }
 
+                            // 7. Wireframe Loading Skeleton on weak connection or when shelves are still being fetched
+                            if (data.shelves.isEmpty()) {
+                                item(key = "weak_conn_wireframe_skeleton") {
+                                    HomeWireframeSkeleton(isWeakConnection = true)
+                                }
+                            }
 
                             if (data.isLoadingMore) {
                                 item { HomeShelfLoadingMore() }
