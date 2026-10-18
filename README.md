@@ -1,4 +1,4 @@
-
+<div align="center">
   <h1>Mimikyu</h1>
   <p><strong>A modern, fluid Android music streaming app built with Jetpack Compose, real-time word-by-word synced TTML lyrics, sleek glassmorphism, and seamless cloud sync.</strong></p>
 

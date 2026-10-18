@@ -81,4 +81,7 @@ phone_screenshot.png
 RELEASE_SIGNING.md
 # Gradle updateDaemonJvm 在本地生成的后台进程 JDK 约束，不纳入版本管理
 gradle/gradle-daemon-jvm.properties
+rules.md
+mimikyu_map.md
+.agents/
 
