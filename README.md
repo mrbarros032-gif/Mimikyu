@@ -1,10 +1,12 @@
 <div align="center">
+  <img src="docs/images/cover.png" alt="Mimikyu Cover" width="100%" />
+
   <h1>Mimikyu</h1>
   <p><strong>A modern, fluid Android music streaming app built with Jetpack Compose, real-time word-by-word synced TTML lyrics, sleek glassmorphism, and seamless cloud sync.</strong></p>
 
   <p>
     <a href="https://github.com/szzsuke/Mimikyu/releases/latest">
-      <img src="https://img.shields.io/badge/📲%20Download%20Latest%20Beta%20APK-v1.0.0--beta.1-6C5CE7?style=for-the-badge&logo=android&logoColor=white" alt="Download Beta APK" />
+      <img src="docs/images/get-it-on-github-stable.svg" alt="Get it on GitHub" height="65" />
     </a>
   </p>
 
@@ -88,6 +90,14 @@ Mimikyu is an independent open-source project maintained with passion. If you en
 ---
 
 ## 📥 Download & Installation
+
+<div align="center">
+
+| GitHub |
+| :---: |
+| <a href="https://github.com/szzsuke/Mimikyu/releases/latest"><img src="docs/images/get-it-on-github-stable.svg" alt="Get it on GitHub" width="240" /></a> |
+
+</div>
 
 - **Direct Download**: Grab the latest `.apk` from **[GitHub Releases](https://github.com/szzsuke/Mimikyu/releases/latest)**.
 - **Bug Reports & Requests**: Submit feedback and ideas via **[GitHub Issues](https://github.com/szzsuke/Mimikyu/issues)**.
