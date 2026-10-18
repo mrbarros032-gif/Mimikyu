@@ -20,6 +20,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -68,34 +72,70 @@ fun Modifier.homeShimmer(shape: Shape = RoundedCornerShape(8.dp)): Modifier {
 @Composable
 fun HomeWireframeSkeleton(
     modifier: Modifier = Modifier,
-    isWeakConnection: Boolean = false
+    isWeakConnection: Boolean = false,
+    onRefresh: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = HomeEdgePadding)
     ) {
-        // Subtle status indicator when connection is slow
+        // Status indicator with interactive Refresh button when connection is slow
         if (isWeakConnection) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(Color(0xFFFFB300), CircleShape)
-                )
-                Text(
-                    text = "Slow connection detected • Loading playlists...",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 12.sp,
-                    fontFamily = RobotoFontFamily,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(Color(0xFFFFB300), CircleShape)
+                    )
+                    Text(
+                        text = "Slow connection • Loading playlists...",
+                        color = Color.White.copy(alpha = 0.75f),
+                        fontSize = 12.sp,
+                        fontFamily = RobotoFontFamily,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                if (onRefresh != null) {
+                    Surface(
+                        onClick = onRefresh,
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color.White.copy(alpha = 0.12f),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, Color.White.copy(alpha = 0.25f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh",
+                                tint = Color.White,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "Refresh",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                fontFamily = RobotoFontFamily,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
             }
         }
 

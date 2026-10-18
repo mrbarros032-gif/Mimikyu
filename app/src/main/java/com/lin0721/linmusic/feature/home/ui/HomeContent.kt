@@ -62,12 +62,12 @@ fun HomeContent(
 
                     when (uiState) {
                         is HomeUiState.Loading -> item(key = "initial_loading_skeleton") {
-                            HomeWireframeSkeleton(isWeakConnection = false)
+                            HomeWireframeSkeleton(isWeakConnection = false, onRefresh = onRefresh)
                         }
 
                         is HomeUiState.Error -> item(key = "error_content_state") {
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                HomeWireframeSkeleton(isWeakConnection = true)
+                                HomeWireframeSkeleton(isWeakConnection = true, onRefresh = onRefresh)
                                 ErrorContent(message = uiState.message, onRetry = onRetry)
                             }
                         }
@@ -159,7 +159,7 @@ fun HomeContent(
                             // 7. Wireframe Loading Skeleton on weak connection or when shelves are still being fetched
                             if (data.shelves.isEmpty()) {
                                 item(key = "weak_conn_wireframe_skeleton") {
-                                    HomeWireframeSkeleton(isWeakConnection = true)
+                                    HomeWireframeSkeleton(isWeakConnection = true, onRefresh = onRefresh)
                                 }
                             }
 
