@@ -131,7 +131,7 @@ fun BoxScope.PlaylistDockedPlayButton(
     val playInteraction = remember { MutableInteractionSource() }
     FloatingActionButton(
         onClick        = onPlayAll,
-        containerColor = Color(0xFF1ED760),
+        containerColor = MaterialTheme.colorScheme.primary,
         shape          = CircleShape,
         interactionSource = playInteraction,
         modifier       = Modifier
@@ -146,7 +146,7 @@ fun BoxScope.PlaylistDockedPlayButton(
         Icon(
             painter = painterResource(if (isCurrentlyPlayingThis) MimikyuIcons.Pause else MimikyuIcons.Play),
             contentDescription = if (isCurrentlyPlayingThis) "Pause" else "Play",
-            tint = Color.Black,
+            tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.size(24.dp)
         )
     }

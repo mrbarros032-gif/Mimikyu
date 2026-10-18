@@ -531,10 +531,13 @@ class PlayerViewModel(
             _songDetailState.update { it.copy(isLyricsLoading = true) }
         }
         playbackRepository.getLyrics(songId).collect { result ->
+            if (currentSongId != songId) return@collect
             result.onSuccess { lines ->
-                _songDetailState.update { it.copy(lyrics = lines, isLyricsLoading = false) }
+                if (currentSongId == songId) {
+                    _songDetailState.update { it.copy(lyrics = lines, isLyricsLoading = false) }
+                }
             }.onFailure {
-                if (_songDetailState.value.lyrics.isEmpty()) {
+                if (currentSongId == songId && _songDetailState.value.lyrics.isEmpty()) {
                     _songDetailState.update { it.copy(lyrics = emptyList(), isLyricsLoading = false) }
                 }
             }
@@ -543,6 +546,7 @@ class PlayerViewModel(
 
     private suspend fun loadSongDetail(songId: Long) {
         playerRepository.getSongDetail(songId).collect { result ->
+            if (currentSongId != songId) return@collect
             val track = result.getOrNull() ?: run {
                 val current = playerManager.currentTrack.value
                 val title = YouTubeIdRegistry.getTitle(songId).ifEmpty { current?.mediaMetadata?.title?.toString() ?: "" }

@@ -281,13 +281,13 @@ private fun LikedSongsHeader(
                         .size(44.dp)
                         .pressable(MimikyuPress.Icon) { onPlay() }
                         .clip(CircleShape)
-                        .background(Color.White),
+                        .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         painter = painterResource(MimikyuIcons.Play),
                         contentDescription = "Play All",
-                        tint = Color(0xFF1DB954),
+                        tint = Color.White,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -374,7 +374,7 @@ private fun LikedSongRow(
             Icon(
                 painter = painterResource(MimikyuIcons.HeartFilled),
                 contentDescription = "Unlike",
-                tint = Color(0xFF1DB954),
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp)
             )
         }

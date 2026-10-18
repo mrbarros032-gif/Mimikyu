@@ -382,7 +382,7 @@ fun PlaylistHeaderItem(
                     Icon(
                         painter = painterResource(if (isSubscribed) MimikyuIcons.CheckCircle else MimikyuIcons.PlusCircle),
                         contentDescription = if (isSubscribed) "Added to your library" else "Add to library",
-                        tint = if (isSubscribed) Color(0xFF1ED760) else Color.White.copy(alpha = 0.72f),
+                        tint = if (isSubscribed) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.72f),
                         modifier = Modifier
                             .size(24.dp)
                             .pressable(MimikyuPress.Icon) { onSubscribeClick() }
@@ -409,7 +409,7 @@ fun PlaylistHeaderItem(
                     )
                 }
 
-                // Right Actions: Shuffle + Green Circular Play Button
+                // Right Actions: Shuffle + Circular Play Button
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -418,7 +418,7 @@ fun PlaylistHeaderItem(
                     Icon(
                         painter = painterResource(MimikyuIcons.Shuffle),
                         contentDescription = "Shuffle",
-                        tint = if (isShuffleActive) Color(0xFF1ED760) else Color.White.copy(alpha = 0.72f),
+                        tint = if (isShuffleActive) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.72f),
                         modifier = Modifier
                             .size(26.dp)
                             .pressable(MimikyuPress.Icon) { onShuffleToggle() }

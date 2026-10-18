@@ -47,27 +47,32 @@ object LayaDecisionEngine {
         val candidateScores = mutableMapOf<SongItem, Float>()
         val scoreBreakdowns = mutableMapOf<String, Float>()
 
+        val candidateTitleScores = mutableMapOf<SongItem, Float>()
+
         for (candidate in candidates) {
             var score = 0f
+            var titleScore = 0f
             val candTitle = candidate.title.lowercase().trim()
             val candArtist = candidate.artists.joinToString(" ") { it.name }.lowercase().trim()
             val candDuration = candidate.duration ?: 0
 
             // 1. Title Congruence
             if (candTitle == targetTitle) {
-                score += 50f
+                titleScore += 50f
             } else if (candTitle.replace(Regex("[^a-z0-9]"), "") == targetTitle.replace(Regex("[^a-z0-9]"), "")) {
-                score += 42f
+                titleScore += 42f
             } else if (candTitle.contains(targetTitle) || targetTitle.contains(candTitle)) {
-                score += 26f
+                titleScore += 26f
             } else {
                 val targetWords = targetTitle.split(Regex("[\\s,._\\-]+")).filter { it.length > 2 }.toSet()
                 val candWords = candTitle.split(Regex("[\\s,._\\-]+")).filter { it.length > 2 }.toSet()
                 if (targetWords.isNotEmpty() && candWords.isNotEmpty()) {
                     val overlap = targetWords.intersect(candWords).size
-                    score += (overlap.toFloat() / targetWords.size.toFloat() * 22f).coerceAtMost(22f)
+                    titleScore += (overlap.toFloat() / targetWords.size.toFloat() * 22f).coerceAtMost(22f)
                 }
             }
+            score += titleScore
+            candidateTitleScores[candidate] = titleScore
 
             // 2. Artist Congruence
             if (primaryTargetArtist.isNotBlank()) {
@@ -130,11 +135,12 @@ object LayaDecisionEngine {
         val maxScore = bestCandidate?.value ?: 0f
         // Laya calibrated softmax probability
         val confidence = (maxScore / 100f).coerceIn(0.1f, 0.99f)
-        val rationale = "Laya choice: '${bestCandidate?.key?.title}' score=$maxScore (confidence=${(confidence * 100).toInt()}%)"
+        val isViableMatch = bestCandidate != null && maxScore >= 35f && (candidateTitleScores[bestCandidate.key] ?: 0f) >= 15f
+        val rationale = "Laya choice: '${bestCandidate?.key?.title}' score=$maxScore titleScore=${candidateTitleScores[bestCandidate?.key]} (confidence=${(confidence * 100).toInt()}%, viable=$isViableMatch)"
 
         AppLogger.d(TAG, rationale)
         return LayaChoiceResult(
-            selected = if (maxScore > 10f) bestCandidate?.key else null,
+            selected = if (isViableMatch) bestCandidate?.key else null,
             confidence = confidence,
             scores = scoreBreakdowns,
             rationale = rationale

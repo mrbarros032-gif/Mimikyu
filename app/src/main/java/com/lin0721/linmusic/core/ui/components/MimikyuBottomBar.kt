@@ -263,18 +263,13 @@ fun MiniPlayerCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Add to Playlist / Library Button (Matches User Screenshot)
+                // Favorite / Like Button
                 MimikyuIconButton(
-                    onClick = {
-                        if (onAddToPlaylistClick != null) {
-                            onAddToPlaylistClick()
-                        } else {
-                            onLikeClick()
-                        }
-                    },
+                    onClick = onLikeClick,
                     modifier = Modifier.size(36.dp)
                 ) {
-                    val addIconTint = if (isLiked) {
+                    val heartIcon = if (isLiked) MimikyuIcons.HeartFilled else MimikyuIcons.Heart
+                    val heartIconTint = if (isLiked) {
                         Color(0xFFFF007F)
                     } else if (isPlaying) {
                         Color.White.copy(alpha = 0.90f)
@@ -282,9 +277,9 @@ fun MiniPlayerCard(
                         Color(0xFFB3B3B3)
                     }
                     Icon(
-                        painter = painterResource(MimikyuIcons.AddToPlaylist),
-                        contentDescription = "Add to playlist/library",
-                        tint = addIconTint,
+                        painter = painterResource(heartIcon),
+                        contentDescription = if (isLiked) "Unlike" else "Like",
+                        tint = heartIconTint,
                         modifier = Modifier.size(24.dp)
                     )
                 }

@@ -154,8 +154,8 @@ class ExternalLyricsService(
         }
 
         // 3. Supabase Cloud Object Storage fetch (~50 to 150 ms)
-        val resolvedVid = cleanVid ?: YouTubeIdRegistry.findVideoIdByTitleArtist(cleanTitle, cleanArtist)
-        if (!resolvedVid.isNullOrBlank()) {
+        val resolvedVid = cleanVid ?: YouTubeIdRegistry.findVideoIdByTitleArtist(cleanTitle, cleanArtist, durationSec)
+        if (!resolvedVid.isNullOrBlank() && !resolvedVid.startsWith("track_") && !resolvedVid.startsWith("placeholder_")) {
             val cloudLyrics = fetchZohoCloudTtml(resolvedVid, cleanTitle, cleanArtist, durationSec)
             if (cloudLyrics.isNotEmpty()) {
                 val processed = if (cloudLyrics.any { it.isSynced && !it.isGap }) LyricParser.processLinesWithGaps(cloudLyrics) else cloudLyrics
@@ -526,7 +526,9 @@ class ExternalLyricsService(
 
             if (bestMatch?.syncedLyrics != null) {
                 val diff = if (durationSec > 0 && bestMatch.duration > 0) kotlin.math.abs(bestMatch.duration - durationSec) else 0.0
-                if (durationSec <= 0 || diff <= 35.0 || isArtistMatching(artist, bestMatch.artistName)) {
+                val durationOk = durationSec <= 0 || bestMatch.duration <= 0.0 || diff <= 30.0
+                val artistOk = artist.isBlank() || isArtistMatching(artist, bestMatch.artistName)
+                if (durationOk && artistOk) {
                     val lines = LyricParser.parseLrc(bestMatch.syncedLyrics)
                     if (isValidLyrics(lines) && !hasLanguageMismatch(title, artist, lines)) {
                         AppLogger.i(TAG, "lrclib candidate accepted: '${bestMatch.trackName}' by '${bestMatch.artistName}' (dur: ${bestMatch.duration}s)")
@@ -670,7 +672,19 @@ class ExternalLyricsService(
                 val durMs = songObj.optLong("duration", 0L)
                 val durSec = durMs / 1000.0
 
-                if (durationSec > 0 && durSec > 0 && kotlin.math.abs(durSec - durationSec) > 35.0) {
+                val artistsArr = songObj.optJSONArray("artists")
+                val artistNames = mutableListOf<String>()
+                if (artistsArr != null) {
+                    for (aIdx in 0 until artistsArr.length()) {
+                        artistNames.add(artistsArr.getJSONObject(aIdx).optString("name", ""))
+                    }
+                }
+                val candArtist = artistNames.joinToString(", ")
+                if (artist.isNotBlank() && candArtist.isNotBlank() && !isArtistMatching(artist, candArtist)) {
+                    continue
+                }
+
+                if (durationSec > 0 && durSec > 0 && kotlin.math.abs(durSec - durationSec) > 30.0) {
                     continue
                 }
 
@@ -719,9 +733,15 @@ class ExternalLyricsService(
                 val item = infoList.getJSONObject(i)
                 val hash = item.optString("hash")
                 val dur = item.optInt("duration", 0)
+                val singer = item.optString("singername", "")
+                val filename = item.optString("filename", "")
                 if (hash.isBlank()) continue
 
-                if (durationSec > 0 && dur > 0 && kotlin.math.abs(dur - durationSec) > 35) {
+                if (artist.isNotBlank() && singer.isNotBlank() && !isArtistMatching(artist, singer) && !filename.contains(artist, ignoreCase = true)) {
+                    continue
+                }
+
+                if (durationSec > 0 && dur > 0 && kotlin.math.abs(dur - durationSec) > 30) {
                     continue
                 }
 
@@ -811,16 +831,35 @@ class ExternalLyricsService(
         }
     }
 
+    private val ARTIST_STOPWORDS = setOf(
+        "the", "a", "an", "and", "or", "feat", "ft", "featuring", "dj", "mc", "dr",
+        "mr", "ms", "mrs", "lil", "big", "young", "boy", "girl", "band", "orchestra",
+        "trio", "duo", "group", "soundtrack", "ost", "records", "music", "official",
+        "vs", "with", "by", "in", "on", "of", "to", "at", "from"
+    )
+
     private fun isArtistMatching(expected: String, candidate: String): Boolean {
-        if (expected.isBlank() || candidate.isBlank()) return true
+        if (expected.isBlank() || candidate.isBlank()) return false
         val expClean = normalizeString(expected)
         val candClean = normalizeString(candidate)
-        if (expClean.isEmpty() || candClean.isEmpty()) return true
+        if (expClean.isEmpty() || candClean.isEmpty()) return false
+        if (expClean == candClean) return true
         if (expClean in candClean || candClean in expClean) return true
 
-        val expTokens = expClean.split(Regex("""[\s,;&/、|\\+x]+""")).filter { it.length >= 2 }
-        val candTokens = candClean.split(Regex("""[\s,;&/、|\\+x]+""")).filter { it.length >= 2 }
-        return expTokens.any { t -> candTokens.any { c -> t in c || c in t } }
+        val expTokens = expClean.split(Regex("""[\s,;&/、|\\+x]+"""))
+            .map { it.trim() }
+            .filter { it.length >= 3 && it !in ARTIST_STOPWORDS }
+        val candTokens = candClean.split(Regex("""[\s,;&/、|\\+x]+"""))
+            .map { it.trim() }
+            .filter { it.length >= 3 && it !in ARTIST_STOPWORDS }
+
+        if (expTokens.isEmpty() || candTokens.isEmpty()) return false
+
+        return expTokens.any { t ->
+            candTokens.any { c ->
+                t == c || (t.length >= 4 && c.length >= 4 && (t.startsWith(c) || c.startsWith(t)))
+            }
+        }
     }
 
     private fun normalizeString(input: String): String {
@@ -976,6 +1015,9 @@ class ExternalLyricsService(
         cleanArtist: String,
         durationSec: Int
     ): List<LyricLine> {
+        if (videoId.isBlank() || videoId.startsWith("track_") || videoId.startsWith("placeholder_")) {
+            return emptyList()
+        }
         val configuredBase = settingsPreferences?.zohoLyricsBaseUrl?.firstOrNull()?.trim()
         val baseUrl = if (configuredBase.isNullOrBlank()) {
             com.lin0721.linmusic.BuildConfig.SUPABASE_LYRICS_BASE_URL
@@ -984,15 +1026,26 @@ class ExternalLyricsService(
         return runCatching {
             val ttmlUrl = "${baseUrl.trimEnd('/')}/$videoId.ttml"
             AppLogger.d(TAG, "Querying Supabase Cloud TTML lyrics endpoint: $ttmlUrl")
+            val anonKey = com.lin0721.linmusic.BuildConfig.SUPABASE_ANON_KEY
             val responseText = httpClient.get(ttmlUrl) {
                 header("User-Agent", "MimikyuApp/1.0 (Android)")
-                header("apikey", com.lin0721.linmusic.BuildConfig.SUPABASE_ANON_KEY)
-                header("Authorization", "Bearer ${com.lin0721.linmusic.BuildConfig.SUPABASE_ANON_KEY}")
+                if (anonKey.isNotBlank()) {
+                    header("apikey", anonKey)
+                    header("Authorization", "Bearer $anonKey")
+                }
             }.bodyAsText()
 
             if (responseText.isNotBlank() && (responseText.contains("<tt") || responseText.contains("<span") || responseText.contains("<p"))) {
                 val parsed = LyricParser.parseTtml(responseText)
                 if (isValidLyrics(parsed)) {
+                    val lastLine = parsed.lastOrNull { !it.isGap }
+                    if (durationSec > 0 && lastLine != null) {
+                        val lyricEndSec = (lastLine.timeMs + lastLine.durationMs) / 1000
+                        if (lyricEndSec > 0 && kotlin.math.abs(lyricEndSec - durationSec) > 30) {
+                            AppLogger.w(TAG, "Supabase TTML rejected for '$cleanTitle': lyric end ${lyricEndSec}s differs from track duration ${durationSec}s > 30s")
+                            return@runCatching emptyList()
+                        }
+                    }
                     parsed
                 } else emptyList()
             } else {

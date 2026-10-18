@@ -52,10 +52,15 @@ class MimikyuApplication : Application() {
             com.google.firebase.FirebaseApp.initializeApp(this)
             val appCheck = com.google.firebase.appcheck.FirebaseAppCheck.getInstance()
             if (BuildConfig.DEBUG) {
-                appCheck.installAppCheckProviderFactory(
-                    com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory.getInstance()
-                )
-                AppLogger.i("MimikyuApplication", "Firebase App Check initialized with DebugAppCheckProviderFactory")
+                try {
+                    val debugFactoryClass = Class.forName("com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory")
+                    val getInstanceMethod = debugFactoryClass.getMethod("getInstance")
+                    val factory = getInstanceMethod.invoke(null) as com.google.firebase.appcheck.AppCheckProviderFactory
+                    appCheck.installAppCheckProviderFactory(factory)
+                    AppLogger.i("MimikyuApplication", "Firebase App Check initialized with DebugAppCheckProviderFactory")
+                } catch (e: Exception) {
+                    AppLogger.w("MimikyuApplication", "DebugAppCheckProviderFactory not available: ${e.message}")
+                }
             } else {
                 appCheck.installAppCheckProviderFactory(
                     com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory.getInstance()

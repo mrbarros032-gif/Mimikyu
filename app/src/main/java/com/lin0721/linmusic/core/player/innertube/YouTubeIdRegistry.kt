@@ -285,15 +285,29 @@ object YouTubeIdRegistry {
         return null
     }
 
-    fun findVideoIdByTitleArtist(title: String, artist: String): String? {
+    fun findVideoIdByTitleArtist(title: String, artist: String, expectedDurationSec: Int = 0): String? {
         val cleanT = cleanMetadataText(title).lowercase().trim()
         val cleanA = cleanMetadataText(artist).lowercase().trim()
         if (cleanT.isBlank()) return null
         for ((songId, vid) in idToVideoId) {
+            if (vid.isBlank() || vid.startsWith("track_") || vid.startsWith("placeholder_")) continue
             val t = (idToTitle[songId] ?: "").lowercase().trim()
             val a = (idToArtist[songId] ?: "").lowercase().trim()
-            if (t == cleanT && (cleanA.isBlank() || a.contains(cleanA) || cleanA.contains(a))) {
-                return vid
+            if (t == cleanT) {
+                val artistMatches = if (cleanA.isNotBlank() && a.isNotBlank()) {
+                    a == cleanA || a.contains(cleanA) || cleanA.contains(a)
+                } else {
+                    cleanA.isBlank() && a.isBlank()
+                }
+                if (artistMatches) {
+                    if (expectedDurationSec > 0) {
+                        val dur = idToDurationSec[songId] ?: 0
+                        if (dur > 0 && kotlin.math.abs(dur - expectedDurationSec) > 20) {
+                            continue
+                        }
+                    }
+                    return vid
+                }
             }
         }
         return null

@@ -28,9 +28,9 @@ val releaseKeyAlias = signingValue("RELEASE_KEY_ALIAS", "RELEASE_KEY_ALIAS")
 val releaseKeyPassword = signingValue("RELEASE_KEY_PASSWORD", "RELEASE_KEY_PASSWORD")
 
 val supabaseLyricsUrl = (keystoreProps.getProperty("SUPABASE_LYRICS_BASE_URL") ?: System.getenv("SUPABASE_LYRICS_BASE_URL"))?.takeIf { it.isNotBlank() }
-    ?: "https://tdsqcsumdfrorcamhkav.supabase.co/storage/v1/object/public/lyrics"
+    ?: ""
 val supabaseAnonKey = (keystoreProps.getProperty("SUPABASE_ANON_KEY") ?: System.getenv("SUPABASE_ANON_KEY"))?.takeIf { it.isNotBlank() }
-    ?: "sb_publishable_vbAYQNC577QOflECOPTdSw_YrGKk2P0"
+    ?: ""
 
 val hasReleaseSigning = releaseStoreFile != null &&
         releaseStorePassword != null &&
@@ -51,8 +51,9 @@ android {
         minSdk = 26
         targetSdk = 36
         // CI 打 tag 发布时通过 -PreleaseVersionCode/-PreleaseVersionName 覆盖，本地构建保持默认值
-        versionCode = (project.findProperty("releaseVersionCode") as String?)?.toIntOrNull() ?: 1
-        versionName = (project.findProperty("releaseVersionName") as String?) ?: "1.0.0"
+        versionCode = (project.findProperty("releaseVersionCode") as String?)?.toIntOrNull() ?: 2
+        versionName = (project.findProperty("releaseVersionName") as String?) ?: "1.1.0"
+
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "AUDIOMETA_API_KEY", "\"\"")

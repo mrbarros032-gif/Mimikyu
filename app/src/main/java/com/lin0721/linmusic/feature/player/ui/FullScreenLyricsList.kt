@@ -101,7 +101,7 @@ fun ColumnScope.FullScreenLyricsList(
         KaraokeLyricsView(
             listState = lyricsListState,
             lyrics = accompanistLyrics,
-            currentPosition = { (currentPositionProvider() + lyricOffsetMs).toInt() },
+            currentPosition = { currentPositionProvider().toInt() },
             onLineClicked = { line ->
                 onSeek(line.start.toLong())
             },

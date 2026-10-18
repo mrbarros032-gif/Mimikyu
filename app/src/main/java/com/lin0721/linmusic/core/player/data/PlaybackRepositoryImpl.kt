@@ -58,7 +58,13 @@ class PlaybackRepositoryImpl(
                 val searchRes = runCatching {
                     com.metrolist.innertube.YouTube.search(query, com.metrolist.innertube.YouTube.SearchFilter.FILTER_SONG).getOrNull()
                 }.getOrNull()
-                val firstSong = searchRes?.items?.filterIsInstance<com.metrolist.innertube.models.SongItem>()?.firstOrNull()
+                val candidates = searchRes?.items?.filterIsInstance<com.metrolist.innertube.models.SongItem>() ?: emptyList()
+                val parsed = com.lin0721.linmusic.core.importer.ParsedTrackInfo(
+                    title = title,
+                    artist = artist,
+                    durationMs = (YouTubeIdRegistry.getDurationSec(songId) * 1000).toLong()
+                )
+                val firstSong = com.lin0721.linmusic.core.laya.LayaDecisionEngine.selectBestSong(parsed, candidates).selected
                 if (firstSong != null) {
                     videoId = firstSong.id
                     val cleanT = com.lin0721.linmusic.core.metadata.cleanMetadataText(firstSong.title)
