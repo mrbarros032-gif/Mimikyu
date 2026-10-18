@@ -105,7 +105,7 @@ fun KaraokeLyricsView(
 ) {
     val currentProvider by rememberUpdatedState(currentPosition)
     val timeProvider = remember { { currentProvider() } }
-    val measurer = rememberTextMeasurer(cacheSize = 0)
+    val measurer = rememberTextMeasurer(cacheSize = 128)
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
     val profiles =
@@ -252,7 +252,7 @@ fun KaraokeLyricsView(
                         index - (focus.allIndices.lastOrNull() ?: focus.firstIndex),
                     )
                 val blur by
-                animateFloatAsState(if (useBlurEffect) distance * blurDelta else 0f, tween(300))
+                    animateFloatAsState(if (useBlurEffect) (distance * blurDelta).coerceAtMost(16f) else 0f, tween(300))
                 Column {
                     if (index == 0 && focus.activeIntro)
                         KaraokeBreathingDots(

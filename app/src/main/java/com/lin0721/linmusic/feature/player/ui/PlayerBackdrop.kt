@@ -35,7 +35,7 @@ import kotlin.math.sin
 enum class BackdropMode { Collapsed, Immersive }
 
 // Modifier.blur /
-private val BACKDROP_BLUR_RADIUS = 60.dp
+private val BACKDROP_BLUR_RADIUS = 24.dp
 
 // of ： + lighten/darken ，Immersive  and Lyrics Preview
 // fill  of ， of  base——base  Vibrant
@@ -179,7 +179,7 @@ fun PlayerBackdrop(
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .blur(72.dp)
+                        .blur(24.dp)
                         .drawBehind {
                             val w = size.width
                             val h = size.height
@@ -195,7 +195,12 @@ fun PlayerBackdrop(
                             val r1 = minDim * 0.90f * pulse
                             drawCircle(
                                 brush = Brush.radialGradient(
-                                    colors = listOf(color1.copy(alpha = 0.80f), color1.copy(alpha = 0.35f), Color.Transparent),
+                                    colorStops = arrayOf(
+                                        0.0f to color1.copy(alpha = 0.80f),
+                                        0.40f to color1.copy(alpha = 0.40f),
+                                        0.75f to color1.copy(alpha = 0.12f),
+                                        1.0f to Color.Transparent
+                                    ),
                                     center = Offset(cx1, cy1),
                                     radius = r1
                                 ),
@@ -210,7 +215,12 @@ fun PlayerBackdrop(
                             val r2 = minDim * 0.95f * (2f - pulse)
                             drawCircle(
                                 brush = Brush.radialGradient(
-                                    colors = listOf(color2.copy(alpha = 0.75f), color2.copy(alpha = 0.30f), Color.Transparent),
+                                    colorStops = arrayOf(
+                                        0.0f to color2.copy(alpha = 0.75f),
+                                        0.40f to color2.copy(alpha = 0.35f),
+                                        0.75f to color2.copy(alpha = 0.10f),
+                                        1.0f to Color.Transparent
+                                    ),
                                     center = Offset(cx2, cy2),
                                     radius = r2
                                 ),
@@ -225,7 +235,12 @@ fun PlayerBackdrop(
                             val r3 = minDim * 0.85f
                             drawCircle(
                                 brush = Brush.radialGradient(
-                                    colors = listOf(color3.copy(alpha = 0.70f), color3.copy(alpha = 0.25f), Color.Transparent),
+                                    colorStops = arrayOf(
+                                        0.0f to color3.copy(alpha = 0.70f),
+                                        0.40f to color3.copy(alpha = 0.30f),
+                                        0.75f to color3.copy(alpha = 0.08f),
+                                        1.0f to Color.Transparent
+                                    ),
                                     center = Offset(cx3, cy3),
                                     radius = r3
                                 ),
@@ -239,7 +254,11 @@ fun PlayerBackdrop(
                             val r4 = minDim * 0.75f
                             drawCircle(
                                 brush = Brush.radialGradient(
-                                    colors = listOf(color4.copy(alpha = 0.65f), Color.Transparent),
+                                    colorStops = arrayOf(
+                                        0.0f to color4.copy(alpha = 0.65f),
+                                        0.45f to color4.copy(alpha = 0.25f),
+                                        1.0f to Color.Transparent
+                                    ),
                                     center = Offset(cx4, cy4),
                                     radius = r4
                                 ),
