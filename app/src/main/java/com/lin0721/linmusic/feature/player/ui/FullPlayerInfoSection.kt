@@ -175,7 +175,7 @@ private fun FullPlayerInfoCard(
         FullPlayerCard.LYRICS -> LyricsCard(
             lyrics = songState.lyrics,
             currentIndex = currentLyricIndex,
-            isLoading = false,
+            isLoading = songState.isLyricsLoading && songState.lyrics.isEmpty(),
             base = colors.base,
             onOpenFullScreen = onOpenFullScreenLyrics
         )

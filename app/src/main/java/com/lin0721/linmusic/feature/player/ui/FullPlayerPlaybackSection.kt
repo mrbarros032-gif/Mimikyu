@@ -108,6 +108,7 @@ fun LazyListScope.fullPlayerPlaybackSection(
             lyrics = songState.lyrics,
             currentLyricIndex = currentLyricIndex,
             isPlaying = isPlaying,
+            isLyricsLoading = songState.isLyricsLoading,
             onOpenFullScreen = onOpenFullScreenLyrics
         )
     }

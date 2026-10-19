@@ -36,21 +36,33 @@ fun MiniLyricLine(
     lyrics: List<LyricLine>,
     currentLyricIndex: Int,
     isPlaying: Boolean,
+    isLyricsLoading: Boolean = false,
     onOpenFullScreen: () -> Unit = {}
 ) {
     val isPureMusic = lyrics.size == 1 && lyrics[0].text == "Instrumental"
+
+    val firstRealLine = remember(lyrics) {
+        lyrics.firstOrNull { !it.isGap && it.text.isNotBlank() }?.text.orEmpty()
+    }
+
     val currentLine = lyrics.getOrNull(currentLyricIndex)
+
     val currentText = when {
-        isPureMusic -> ""
+        isPureMusic -> "Instrumental"
+        lyrics.isEmpty() -> ""
         currentLine != null && !currentLine.isGap && currentLine.text.isNotBlank() -> currentLine.text
-        else -> ""
+        currentLine != null && currentLine.isGap -> {
+            val nextLine = lyrics.drop(currentLyricIndex + 1).firstOrNull { !it.isGap && it.text.isNotBlank() }?.text
+            nextLine ?: firstRealLine
+        }
+        else -> firstRealLine
     }
 
     // Always maintain a fixed height container so song title, controls and progress bar NEVER move or jump
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .height(56.dp)
             .padding(horizontal = MimikyuSpacing.lg)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -68,13 +80,18 @@ fun MiniLyricLine(
                 Text(
                     text = text,
                     color = Color.White,
-                    fontSize = 15.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    lineHeight = 20.sp,
+                    lineHeight = 24.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        } else if (isLyricsLoading && lyrics.isEmpty()) {
+            LoadingDotsAnimation(
+                color = Color.White.copy(alpha = 0.4f),
+                isPlaying = isPlaying
+            )
         }
     }
 }

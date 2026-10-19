@@ -157,6 +157,17 @@ fun LyricsCard(
                             strokeWidth = 2.dp
                         )
                     }
+                } else if (lyrics.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No lyrics available",
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            fontSize = 15.sp
+                        )
+                    }
                 } else {
                     LyricsPreview(
                         lyrics = lyrics,
@@ -181,6 +192,25 @@ fun LyricsPreview(
     inactiveColor: Color,
     onCurrentLineLayout: (Int) -> Unit
 ) {
+    val displayLyrics = remember(lyrics) {
+        val nonGaps = lyrics.filter { !it.isGap && it.text.isNotBlank() }
+        if (nonGaps.isNotEmpty()) nonGaps else lyrics.filter { it.text.isNotBlank() }
+    }
+
+    val currentLine = lyrics.getOrNull(currentIndex)
+    val displayCurrentIndex = remember(currentIndex, displayLyrics) {
+        if (displayLyrics.isEmpty()) 0
+        else {
+            val idx = displayLyrics.indexOf(currentLine)
+            if (idx >= 0) idx
+            else {
+                val currentTime = currentLine?.timeMs ?: 0L
+                val nextIdx = displayLyrics.indexOfFirst { it.timeMs >= currentTime }
+                if (nextIdx >= 0) nextIdx else (displayLyrics.size - 1).coerceAtLeast(0)
+            }
+        }
+    }
+
     val itemSpacingDp = LyricItemSpacing
     val itemHeightNoDpEst    = LyricItemHeightNoTransEst
     val itemHeightWithTransDpEst = LyricItemHeightWithTransEst
@@ -190,23 +220,23 @@ fun LyricsPreview(
     val lazyListState = rememberLazyListState()
     var cardHeightPx by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(currentIndex) {
-        if (currentIndex < 0 || currentIndex >= lyrics.size) return@LaunchedEffect
+    LaunchedEffect(displayCurrentIndex) {
+        if (displayCurrentIndex < 0 || displayCurrentIndex >= displayLyrics.size) return@LaunchedEffect
 
         val cardHeightDp = with(density) { cardHeightPx.toDp() }
         val linesAboveCentre = (cardHeightDp / 2 / itemStrideDp).toInt()
 
-        if (currentIndex < linesAboveCentre) {
+        if (displayCurrentIndex < linesAboveCentre) {
             lazyListState.animateScrollToItem(index = 0, scrollOffset = 0)
             return@LaunchedEffect
         }
-        val hasTranslation   = lyrics[currentIndex].translation != null
+        val hasTranslation   = displayLyrics[displayCurrentIndex].translation != null
         val itemHeightPx     = with(density) {
             if (hasTranslation) itemHeightWithTransDpEst.toPx() else itemHeightNoDpEst.toPx()
         }
         val centreOffsetPx = -(((cardHeightPx - itemHeightPx) / 2f).toInt())
         lazyListState.animateScrollToItem(
-            index       = currentIndex,
+            index       = displayCurrentIndex,
             scrollOffset = centreOffsetPx
         )
     }
@@ -221,12 +251,12 @@ fun LyricsPreview(
         userScrollEnabled   = false,
         contentPadding = PaddingValues(top = 0.dp, bottom = with(density) { (cardHeightPx / 2).toDp() })
     ) {
-        itemsIndexed(items = lyrics, key = ::lyricLineKey) { index, line ->
-            // Instrumental of ，
+        itemsIndexed(items = displayLyrics, key = ::lyricLineKey) { index, line ->
+            // Instrumental of
             if (line.text.isBlank()) return@itemsIndexed
 
-            val isCurrent = index == currentIndex && !line.isGap
-            val distance  = kotlin.math.abs(index - currentIndex).coerceAtMost(4)
+            val isCurrent = index == displayCurrentIndex
+            val distance  = kotlin.math.abs(index - displayCurrentIndex).coerceAtMost(4)
 
             val targetScale = if (isCurrent) 1.15f
                               else (1f - distance * 0.07f).coerceAtLeast(0.85f)
@@ -236,8 +266,7 @@ fun LyricsPreview(
                 label         = "lyric_scale_$index"
             )
 
-            val targetAlpha = if (line.isGap) 0.35f
-                              else if (isCurrent) 1f
+            val targetAlpha = if (isCurrent) 1f
                               else (0.85f - distance * 0.12f).coerceAtLeast(0.4f)
             val animatedAlpha by animateFloatAsState(
                 targetValue   = targetAlpha,
