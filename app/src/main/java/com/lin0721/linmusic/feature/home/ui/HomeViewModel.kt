@@ -178,7 +178,8 @@ class HomeViewModel(
                     }
                 },
                 onFailure = { error ->
-                    if (_uiState.value !is HomeUiState.Success) {
+                    val current = (_uiState.value as? HomeUiState.Success)?.data
+                    if (current == null || (current.shelves.isEmpty() && current.topMixes.isEmpty())) {
                         _uiState.value = HomeUiState.Error(error.toUserMessage(resourceProvider))
                     } else {
                         AppLogger.w(TAG, "Background home refresh failed: ${error.message}")
@@ -207,7 +208,14 @@ class HomeViewModel(
                         }
                     }
                 },
-                onFailure = { _toastEvent.emit(it.toUserMessage(resourceProvider)) }
+                onFailure = { error ->
+                    val current = (_uiState.value as? HomeUiState.Success)?.data
+                    if (current == null || (current.shelves.isEmpty() && current.topMixes.isEmpty())) {
+                        _uiState.value = HomeUiState.Error(error.toUserMessage(resourceProvider))
+                    } else {
+                        _toastEvent.emit(error.toUserMessage(resourceProvider))
+                    }
+                }
             )
             _isRefreshing.value = false
         }

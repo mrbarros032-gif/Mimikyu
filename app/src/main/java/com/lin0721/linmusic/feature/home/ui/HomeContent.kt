@@ -94,15 +94,10 @@ fun HomeContent(
 
                         is HomeUiState.Success -> {
                             val data = uiState.data
-                            val hasContent = data.recentPlaylists.isNotEmpty() ||
-                                data.topMixes.isNotEmpty() ||
-                                data.shelves.isNotEmpty() ||
-                                data.recommendedStations.isNotEmpty() ||
-                                data.moreLikeMixes.isNotEmpty() ||
-                                data.favoriteArtists.isNotEmpty()
+                            val isFeedProperlyLoaded = data.shelves.isNotEmpty() || data.topMixes.isNotEmpty()
 
-                            if (!hasContent) {
-                                // No cached or fresh content available: show Spotify-style empty error state
+                            if (!isFeedProperlyLoaded) {
+                                // Main feed failed to load correctly: show full-page error state
                                 item(key = "spotify_empty_state_full") {
                                     Box(
                                         modifier = Modifier
@@ -191,16 +186,6 @@ fun HomeContent(
                                             items = data.favoriteArtists,
                                             onArtistClick = onArtistClick,
                                             modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)
-                                        )
-                                    }
-                                }
-
-                                // If main shelves failed to load (e.g. only 1 shelf cached), show Spotify error state below it
-                                if (data.shelves.isEmpty()) {
-                                    item(key = "spotify_partial_shelf_refresh") {
-                                        SpotifyStyleErrorState(
-                                            modifier = Modifier.padding(top = 16.dp, bottom = 32.dp),
-                                            onRefresh = onRefresh
                                         )
                                     }
                                 }
