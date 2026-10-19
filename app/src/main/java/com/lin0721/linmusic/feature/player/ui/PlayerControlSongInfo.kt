@@ -35,7 +35,7 @@ fun SongInfo(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MimikyuSpacing.lg)
-            .padding(top = 16.dp, bottom = 2.dp),
+            .padding(top = 8.dp, bottom = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -47,7 +47,7 @@ fun SongInfo(
             Text(
                 text = title,
                 color = Color.White,
-                fontSize = 24.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 modifier = Modifier.basicMarquee()
@@ -56,7 +56,7 @@ fun SongInfo(
             Text(
                 text = artist,
                 color = Color.White.copy(alpha = 0.7f),
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

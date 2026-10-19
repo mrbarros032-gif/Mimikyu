@@ -32,7 +32,7 @@ data class PlayerBackdropPalette(
 // candidate swatch ，/，。
 // （RGB ） HSL ：HSL  0 or 1
 // ， 1  of "High Saturation"，
-private const val MEANINGFUL_CHROMA = 0.06f
+private const val MEANINGFUL_CHROMA = 0.03f
 
 // of ，Play and Play
 val FallbackBackdropPalette = PlayerBackdropPalette(
@@ -128,87 +128,51 @@ internal fun isGrayscaleSwatches(swatches: List<VibrantSwatch>): Boolean =
 // Play、 of
 internal fun grayscaleBaseColor(swatches: List<VibrantSwatch>): Color {
     val dominant = swatches.maxByOrNull { it.population } ?: return FallbackBase
-    val lightness = dominant.hsl[2].coerceIn(0.15f, 0.35f)
+    val lightness = dominant.hsl[2].coerceIn(0.20f, 0.35f)
     return Color(android.graphics.Color.HSVToColor(floatArrayOf(0f, 0f, lightness)))
 }
 
-// and ：/ and ， and
-private const val PAPER_WHITE_LIGHTNESS = 0.9f
-private const val INK_BLACK_LIGHTNESS = 0.1f
-
-// of /（ AIR  of ），。
-// of （ 0.09）， NEUTRAL_FULL_LIGHTNESS
-private const val NEUTRAL_CHROMA = 0.13f
-private const val NEUTRAL_FULL_LIGHTNESS = 0.5f
-
-// ， of 。
-// 1.45  and  1.71（AIR）
-private const val NEUTRAL_WIN_RATIO = 1.6f
-
-// ，hsl[0]  0..1
-private const val HUE_GROUP_RADIUS = 20f / 360f
-
-// of ，
-private const val DARK_PREFERENCE_POWER = 2
-
-// base ，/（ Mimikyu ），
-// 、
 internal const val MIN_BASE_CHROMA = 0.15f
-private const val MAX_BASE_CHROMA = 0.30f
-private const val MIN_BASE_LIGHTNESS = 0.2f
-private const val MAX_BASE_LIGHTNESS = 0.5f
+internal const val NEUTRAL_BASE_CHROMA = 0.04f
 
-
-internal const val NEUTRAL_BASE_CHROMA = 0.06f
-
-// Mimikyu ： of （ NEUTRAL_WIN_RATIO  and ），
-// of
+// Spotify-style atmospheric backdrop color extraction:
+// Selects the dominant atmospheric hue from artwork swatches and normalizes lightness to 0.30-0.38
+// and saturation to 0.22-0.48 so the background matches Spotify's rich artwork glow without washing out.
 internal fun pickBaseColor(swatches: List<VibrantSwatch>): Color {
-    val candidates = swatches.filter {
-        it.population > 0 && it.hsl[2] >= INK_BLACK_LIGHTNESS && it.hsl[2] < PAPER_WHITE_LIGHTNESS
+    val nonPureSwatches = swatches.filter {
+        it.population > 0 && it.hsl[2] in 0.06f..0.92f
     }
-    if (candidates.isEmpty()) return FallbackBase
+    if (nonPureSwatches.isEmpty()) return FallbackBase
 
-    val (neutral, chromatic) = candidates.partition {
-        it.chroma < NEUTRAL_CHROMA * min(1f, it.hsl[2] / NEUTRAL_FULL_LIGHTNESS)
-    }
-    val neutralArea = neutral.sumOf { it.population }
+    val totalPop = nonPureSwatches.sumOf { it.population.toLong() }.toFloat().coerceAtLeast(1f)
+    val maxPop = nonPureSwatches.maxOf { it.population }.toFloat().coerceAtLeast(1f)
 
-    var bestGroup = emptyList<VibrantSwatch>()
-    var bestArea = 0
-    for (seed in chromatic) {
-        val group = chromatic.filter { hueDistance(seed.hsl[0], it.hsl[0]) <= HUE_GROUP_RADIUS }
-        val area = group.sumOf { it.population }
-        if (area > bestArea) {
-            bestGroup = group
-            bestArea = area
-        }
+    // Score swatches favoring large atmospheric regions while maintaining moderate chroma:
+    val scored = nonPureSwatches.map { swatch ->
+        val popRatio = swatch.population / maxPop
+        val lightnessDiff = abs(swatch.hsl[2] - 0.36f)
+        val lightnessScore = (1f - lightnessDiff * 1.8f).coerceIn(0f, 1f)
+        val chromaScore = (swatch.chroma.coerceIn(0f, 0.5f) / 0.5f)
+        // High population weight ensures background tones (e.g. MJ Thriller teal glow, JVKE olive) win over tiny text accents
+        val score = popRatio * 0.50f + chromaScore * 0.30f + lightnessScore * 0.20f
+        swatch to score
     }
 
-    if (bestGroup.isEmpty() || neutralArea >= bestArea * NEUTRAL_WIN_RATIO) {
-        val lightness = neutral.sumOf { it.hsl[2].toDouble() * it.population }.toFloat() / neutralArea
-        val hue = weightedMeanHue(neutral)
-            ?: return lightness.coerceIn(MIN_BASE_LIGHTNESS, MAX_BASE_LIGHTNESS).let { Color(it, it, it) }
-        return normalizedColor(hue, NEUTRAL_BASE_CHROMA, lightness)
+    val atmosphericCandidates = scored.filter { it.first.chroma >= 0.035f }
+    val chosen = if (atmosphericCandidates.isNotEmpty()) {
+        atmosphericCandidates.maxBy { it.second }.first
+    } else {
+        scored.maxBy { it.second }.first
     }
 
-    val chosen = bestGroup.maxBy { swatch ->
-        var darkness = 1f
-        repeat(DARK_PREFERENCE_POWER) { darkness *= 1f - swatch.hsl[2] }
-        swatch.population * darkness
+    // Spotify targets mid-tones: 0.30 - 0.38 lightness at the top of the backdrop
+    val targetL = chosen.hsl[2].coerceIn(0.30f, 0.38f)
+    val targetS = if (chosen.chroma >= 0.035f) {
+        chosen.hsl[1].coerceIn(0.22f, 0.48f)
+    } else {
+        chosen.hsl[1].coerceIn(0.10f, 0.25f)
     }
-    return normalizedColor(
-        chosen.hsl[0],
-        chosen.chroma.coerceIn(MIN_BASE_CHROMA, MAX_BASE_CHROMA),
-        chosen.hsl[2],
-    )
-}
-
-// HSL ：， of
-private fun normalizedColor(hue: Float, chroma: Float, lightness: Float): Color {
-    val l = lightness.coerceIn(MIN_BASE_LIGHTNESS, MAX_BASE_LIGHTNESS)
-    val s = (chroma / (1f - abs(2f * l - 1f))).coerceIn(0f, 1f)
-    val (r, g, b) = hslToRgb(hue, s, l)
+    val (r, g, b) = hslToRgb(chosen.hsl[0], targetS, targetL)
     return Color(r, g, b)
 }
 

@@ -34,6 +34,7 @@ import com.lin0721.linmusic.core.ui.components.SwipeToSkipCover
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
 import com.lin0721.linmusic.core.ui.theme.MimikyuSpacing
 
+import android.graphics.Bitmap
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.draw.clip
@@ -59,7 +60,8 @@ fun FullPlayerCoverPager(
     contentPadding: Dp = MimikyuSpacing.lg,
     shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(RadiusCompact),
     elevation: Dp = 24.dp,
-    pageSpacing: Dp = 16.dp
+    pageSpacing: Dp = 16.dp,
+    onCurrentBitmapLoaded: ((Bitmap) -> Unit)? = null
 ) {
     val pageCount = queue.size.coerceAtLeast(1)
     val safeInitialPage = currentIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
@@ -141,6 +143,9 @@ fun FullPlayerCoverPager(
                 url = resolvedCoverUrl,
                 contentScale = ContentScale.Crop,
                 onImageLoaded = { bitmap ->
+                    if (page == currentIndex) {
+                        onCurrentBitmapLoaded?.invoke(bitmap)
+                    }
                     coroutineScope.launch(Dispatchers.Default) {
                         val isTrans = CoverContourShadowHelper.detectIsTransparentCover(bitmap)
                         CoverContourShadowHelper.markTransparency(resolvedCoverUrl, isTrans)
@@ -193,12 +198,13 @@ fun FullPlayerCoverArt(
     onToggleSidebarFullscreen: (() -> Unit)? = null,
     isSidebarFullscreen: Boolean = false,
     modifier: Modifier = Modifier,
-    onCancelSwipe: () -> Boolean = { false }
+    onCancelSwipe: () -> Boolean = { false },
+    onCurrentBitmapLoaded: ((Bitmap) -> Unit)? = null
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = MimikyuSpacing.xs, bottom = MimikyuSpacing.xs),
+            .padding(top = MimikyuSpacing.md, bottom = MimikyuSpacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         FullPlayerSourceBar(
@@ -210,7 +216,7 @@ fun FullPlayerCoverArt(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = MimikyuSpacing.lg)
-                .padding(bottom = 20.dp)
+                .padding(bottom = 44.dp)
         )
 
         FullPlayerCoverPager(
@@ -218,18 +224,17 @@ fun FullPlayerCoverArt(
             currentIndex = currentIndex,
             fallbackCoverUrl = coverUrl,
             onPlayIndex = onPlayIndex,
-            contentPadding = 0.dp,
-            shape = RoundedCornerShape(8.dp),
-            elevation = 0.dp,
-            pageSpacing = 24.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = MimikyuSpacing.lg + coverExtraInset)
+            contentPadding = MimikyuSpacing.lg + coverExtraInset,
+            shape = RoundedCornerShape(RadiusCompact),
+            elevation = 24.dp,
+            pageSpacing = 16.dp,
+            onCurrentBitmapLoaded = onCurrentBitmapLoaded,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
 
-// Source Bar: Top navigation matching Spotify player
+// Play：/、Collapse、Play、More
 @Composable
 fun FullPlayerSourceBar(
     playContext: String?,
@@ -292,16 +297,13 @@ fun FullPlayerSourceBar(
             contentAlignment = Alignment.Center,
             modifier = Modifier.weight(1f)
         ) { context ->
-            val (sourceText, detailText) = when {
-                context == null -> "PLAYING FROM PLAYLIST" to null
-                context.equals("Search", ignoreCase = true) -> "Playing from" to "Search"
-                context.equals("Daily Recommendations", ignoreCase = true) -> "Playing from" to "Daily Recommendations"
-                context.equals("Daily History", ignoreCase = true) -> "Playing from" to "Daily History"
-                context.equals("intelligence", ignoreCase = true) -> "Playing from" to "Heartbeat Mode"
-                context.startsWith("playlist:", ignoreCase = true) -> "Playing from Playlist" to context.substringAfter("playlist:").trim()
-                context.startsWith("album:", ignoreCase = true) -> "Playing from Album" to context.substringAfter("album:").trim()
-                context.startsWith("artist:", ignoreCase = true) -> "Playing from Artist" to context.substringAfter("artist:").trim()
-                else -> "Playing from Playlist" to context
+            val (sourceText, detailText) = when (context) {
+                null -> "NOW PLAYING" to null
+                "Search" -> "Playing from" to "Search"
+                "Daily Recommendations" -> "Playing from" to "Daily Recommendations"
+                "Daily History" -> "Playing from" to "Daily History"
+                "intelligence" -> "Playing from" to "Heartbeat Mode"
+                else -> "Playing from playlist" to context
             }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -327,6 +329,7 @@ fun FullPlayerSourceBar(
                 }
             }
         }
+        // ，Play
         if (onToggleSidebarFullscreen != null) {
             Spacer(modifier = Modifier.width(32.dp + SidebarToggleGap))
         }
@@ -345,4 +348,3 @@ fun FullPlayerSourceBar(
         }
     }
 }
-

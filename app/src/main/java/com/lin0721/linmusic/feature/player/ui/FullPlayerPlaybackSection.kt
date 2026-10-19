@@ -14,7 +14,7 @@ import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
 const val FullPlayerFillGapCount = 3
 
 // and  of ， and  item key
-val FullPlayerPlaybackItemKeys = listOf("cover", "song_info", "progress", "controls", "actions")
+val FullPlayerPlaybackItemKeys = listOf("cover", "active_lyric", "song_info", "progress", "controls", "actions")
 
 // Play：、Artists、、、Play、
 // fillGap ， fillTail ，、
@@ -62,7 +62,9 @@ fun LazyListScope.fullPlayerPlaybackSection(
     onOutputDeviceClick: () -> Unit,
     onQueueClick: () -> Unit,
     onShareClick: () -> Unit,
+    onOpenFullScreenLyrics: () -> Unit = {},
     connectedDevice: AudioDeviceInfo? = null,
+    onCurrentBitmapLoaded: ((android.graphics.Bitmap) -> Unit)? = null,
     fillGap: Dp? = null,
     fillTail: Dp = 0.dp
 ) {
@@ -93,12 +95,22 @@ fun LazyListScope.fullPlayerPlaybackSection(
                 coverExtraInset = coverExtraInset,
                 onToggleSidebarFullscreen = onToggleSidebarFullscreen,
                 isSidebarFullscreen = isSidebarFullscreen,
-                onCancelSwipe = onCancelSwipe
+                onCancelSwipe = onCancelSwipe,
+                onCurrentBitmapLoaded = onCurrentBitmapLoaded
             )
         }
     }
 
     fillGapItem(1)
+
+    item(key = "active_lyric") {
+        MiniLyricLine(
+            lyrics = songState.lyrics,
+            currentLyricIndex = currentLyricIndex,
+            isPlaying = isPlaying,
+            onOpenFullScreen = onOpenFullScreenLyrics
+        )
+    }
 
     item(key = "song_info") {
         SongInfo(

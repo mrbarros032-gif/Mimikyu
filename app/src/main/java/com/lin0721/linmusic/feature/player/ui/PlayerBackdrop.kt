@@ -9,6 +9,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
@@ -114,24 +115,21 @@ fun PlayerBackdrop(
 
             Box(
                 modifier = modifier
-                    .fillMaxWidth()
-                    .height(1200.dp)
+                    .fillMaxSize()
                     .graphicsLayer { translationY = translationYProvider() }
             ) {
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .blur(BACKDROP_BLUR_RADIUS)
                         .drawBehind {
                             drawRect(
                                 brush = Brush.verticalGradient(
-                                    0.0f to fillColor,
-                                    0.2f to fillColor.copy(alpha = 0.75f),
-                                    0.45f to fillColor.copy(alpha = 0.45f),
-                                    0.62f to fillColor.copy(alpha = 0.08f),
-                                    0.76f to Color.Transparent,
-                                    startY = 0f,
-                                    endY = gradientEndY
+                                    0.0f to fillColor.darken(0.35f),
+                                    0.04f to fillColor,
+                                    0.20f to fillColor.darken(0.12f),
+                                    0.45f to fillColor.darken(0.32f),
+                                    0.70f to fillColor.darken(0.55f),
+                                    1.0f to Color(0xFF121212)
                                 )
                             )
                         }

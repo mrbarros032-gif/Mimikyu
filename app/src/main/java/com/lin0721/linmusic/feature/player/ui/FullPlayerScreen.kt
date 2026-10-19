@@ -27,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -48,14 +49,17 @@ import com.lin0721.linmusic.core.ui.theme.PaletteMemoryCache
 import com.lin0721.linmusic.core.ui.theme.PanelReflowFadeFromAlpha
 import com.lin0721.linmusic.core.ui.theme.PanelReflowFadeSpec
 import com.lin0721.linmusic.core.ui.theme.RadiusCompact
+import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromBitmap
 import com.lin0721.linmusic.core.ui.theme.extractBackdropPaletteFromUrl
 import com.lin0721.linmusic.core.ui.theme.mimikyuNavigationBarBottomPadding
 import com.lin0721.linmusic.core.ui.theme.mimikyuStatusBarTopPadding
 import com.lin0721.linmusic.core.ui.theme.rememberMimikyuOrientationClass
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 
 // →，
@@ -453,7 +457,17 @@ fun FullPlayerScreen(
                         onOutputDeviceClick = { showOutputDeviceSheet = true },
                         onQueueClick = { showQueueSheet = true },
                         onShareClick = { shareCurrentSong() },
+                        onOpenFullScreenLyrics = { isLyricsFullScreen = true },
                         connectedDevice = connectedDevice,
+                        onCurrentBitmapLoaded = { bitmap ->
+                            coroutineScope.launch(Dispatchers.Default) {
+                                val palette = extractBackdropPaletteFromBitmap(bitmap)
+                                withContext(Dispatchers.Main) {
+                                    colorPalette = palette
+                                }
+                                PaletteMemoryCache.put(currentTrack.mediaId, palette)
+                            }
+                        },
                         fillGap = if (allCardsHidden) fillGap else null,
                         fillTail = fillTail
                     )
@@ -500,6 +514,23 @@ fun FullPlayerScreen(
                             handleDragRelease(velocity = velocity)
                         }
                     )
+                )
+
+                // Spotify-style status bar gradient scrim for depth and color accuracy, pinned on top
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(mimikyuStatusBarTopPadding() + 8.dp)
+                        .background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.45f),
+                                    Color.Black.copy(alpha = 0.20f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
                 )
             }
         }

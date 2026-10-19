@@ -27,48 +27,51 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.lin0721.linmusic.core.ui.theme.MimikyuSpacing
 
-// of ，
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+
+// Spotify-style active lyric line above song title with fixed height to prevent element shifting
 @Composable
 fun MiniLyricLine(
     lyrics: List<LyricLine>,
     currentLyricIndex: Int,
-    isPlaying: Boolean
+    isPlaying: Boolean,
+    onOpenFullScreen: () -> Unit = {}
 ) {
     val isPureMusic = lyrics.size == 1 && lyrics[0].text == "Instrumental"
     val currentLine = lyrics.getOrNull(currentLyricIndex)
-    val firstLine = lyrics.firstOrNull { it.text.isNotBlank() && !it.isGap }?.text ?: ""
     val currentText = when {
-        isPureMusic -> "Instrumental"
-        currentLine != null && currentLine.isGap -> ""
-        currentLine != null && currentLine.text.isNotBlank() -> currentLine.text
-        lyrics.isNotEmpty() -> firstLine
+        isPureMusic -> ""
+        currentLine != null && !currentLine.isGap && currentLine.text.isNotBlank() -> currentLine.text
         else -> ""
     }
 
+    // Always maintain a fixed height container so song title, controls and progress bar NEVER move or jump
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .height(48.dp)
             .padding(horizontal = MimikyuSpacing.lg)
-            .padding(vertical = 6.dp),
-        contentAlignment = Alignment.CenterStart
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onOpenFullScreen
+            ),
+        contentAlignment = Alignment.BottomStart
     ) {
-        AnimatedContent(
-            targetState = currentText,
-            transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) },
-            label = "mini_lyric"
-        ) { text ->
-            if (text.isEmpty()) {
-                LoadingDotsAnimation(
-                    color = Color.White.copy(alpha = 0.35f),
-                    isPlaying = isPlaying
-                )
-            } else {
+        if (currentText.isNotBlank()) {
+            AnimatedContent(
+                targetState = currentText,
+                transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(200)) },
+                label = "active_lyric"
+            ) { text ->
                 Text(
                     text = text,
                     color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 20.sp,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }

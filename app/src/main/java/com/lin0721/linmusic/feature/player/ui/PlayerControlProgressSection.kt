@@ -67,7 +67,7 @@ fun ProgressSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MimikyuSpacing.lg)
-            .padding(top = 16.dp, bottom = 0.dp)
+            .padding(top = MimikyuSpacing.sm)
     ) {
         var trackWidthPx by remember { mutableFloatStateOf(0f) }
         val density = LocalDensity.current
@@ -90,11 +90,11 @@ fun ProgressSection(
             if (commit) onSeek((seekPosition * duration).toLong())
         }
 
-        // Custom seek bar
+        // Custom（ 0 ， and ）
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(24.dp)
+                .height(28.dp)
                 .onSizeChanged { trackWidthPx = it.width.toFloat() }
                 .pointerInput(duration, chorusFraction) {
                     detectTapGestures(
@@ -124,16 +124,16 @@ fun ProgressSection(
                 ),
             contentAlignment = Alignment.CenterStart
         ) {
-            // Inactive track (4dp)
+            // （ 4dp）
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.2f))
+                    .background(SurfaceLight)
             )
 
-            // Played track (4dp)
+            // Played（）
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progress)
@@ -157,7 +157,7 @@ fun ProgressSection(
                 )
             }
 
-            // Thumb
+            // （Current）
             if (trackWidthPx > 0f) {
                 val thumbOffsetDp = with(density) {
                     (progress * trackWidthPx - thumbSize.toPx() / 2f).coerceIn(
@@ -181,8 +181,8 @@ fun ProgressSection(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             val displayPosition = if (isSeeking) (seekPosition * duration).toLong() else currentPosition
-            Text(formatTime(displayPosition), color = Color.White.copy(alpha = 0.65f), fontSize = 11.sp)
-            Text(formatTime(duration), color = Color.White.copy(alpha = 0.65f), fontSize = 11.sp)
+            Text(formatTime(displayPosition), color = TextGray, fontSize = 13.sp)
+            Text(formatTime(duration), color = TextGray, fontSize = 13.sp)
         }
     }
 }
