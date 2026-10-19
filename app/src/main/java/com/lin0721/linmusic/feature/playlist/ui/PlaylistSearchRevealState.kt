@@ -60,11 +60,14 @@ class SearchBarRevealState internal constructor(
         val max = searchBarHeightPx
         if (max <= 0f) return
         revealPx = (revealPx + delta).coerceIn(0f, max)
+        if (revealPx <= 0f) {
+            isOpen = false
+        }
     }
 
     val connection: NestedScrollConnection = object : NestedScrollConnection {
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-            if (isDailyRecommend || isOpen || revealPx <= 0f || available.y >= 0f) return Offset.Zero
+            if (isDailyRecommend || revealPx <= 0f || available.y >= 0f) return Offset.Zero
             settleJob?.cancel()
             applyClose(available.y)
             return available
@@ -83,13 +86,13 @@ class SearchBarRevealState internal constructor(
         }
 
         override suspend fun onPreFling(available: Velocity): Velocity {
-            if (isDailyRecommend || isOpen || revealPx <= 0f) return Velocity.Zero
+            if (isDailyRecommend || revealPx <= 0f) return Velocity.Zero
             settle(available.y)
             return available
         }
 
         override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-            if (isDailyRecommend || isOpen || revealPx <= 0f) return Velocity.Zero
+            if (isDailyRecommend || revealPx <= 0f) return Velocity.Zero
             settle(available.y)
             return available
         }
@@ -117,7 +120,7 @@ class SearchBarRevealState internal constructor(
     // SearchBack：Expand of
     fun close() {
         val max = searchBarHeightPx
-        if (max <= 0f || !isOpen) return
+        if (max <= 0f) return
         isOpen = false
         settleJob?.cancel()
         settleJob = scope.launch {
@@ -141,7 +144,7 @@ class SearchBarRevealState internal constructor(
         val target = when {
             velocity > flingVelocityThresholdPx -> max
             velocity < -flingVelocityThresholdPx -> 0f
-            revealPx > max / 2f -> max
+            revealPx > max * 0.3f -> max
             else -> 0f
         }
         isOpen = target > 0f

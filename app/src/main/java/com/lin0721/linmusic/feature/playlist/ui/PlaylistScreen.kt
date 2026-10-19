@@ -544,6 +544,7 @@ fun PlaylistScreen(
                     likedSongIds   = likedSongIds,
                     collectState   = collectState,
                     isLoggedIn     = userProfile != null,
+                    userProfile    = userProfile,
                     recommendedSongs = state.recommendedSongs,
                     youMightLikeItems = state.youMightLikeItems,
                     onBack         = onBack,
@@ -759,10 +760,13 @@ fun PlaylistScreen(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = MimikyuSpacing.sm)
                     )
 
-                    val isManageable = !isAlbum && userProfile != null &&
-                        playlist.creator?.userId == userProfile?.uid &&
-                        playlist.id > 0L &&
-                        playlist.id != userProfile?.uid
+                    val isManageable = !isAlbum && (
+                        playlist.isEditable ||
+                        playlist.creator?.nickname == "My Playlist" ||
+                        playlist.description?.contains("Imported playlist", ignoreCase = true) == true ||
+                        (userProfile != null && playlist.id > 0L && playlist.creator?.userId == userProfile?.uid) ||
+                        (playlist.id > 0L && com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore.isCustomPlaylist(playlist.id))
+                    )
 
                     val menuItems = buildList {
                         add(
@@ -814,15 +818,7 @@ fun PlaylistScreen(
                                 }
                             }
                         )
-                        add(
-                            PlaylistMenuItem(
-                                iconRes = MimikyuIcons.Share,
-                                title = "Share $resourceLabel"
-                            ) {
-                                showMoreMenuSheet = false
-                                sharePlaylistOrAlbum(playlist.name, playlist.id)
-                            }
-                        )
+
                         add(
                             PlaylistMenuItem(
                                 iconRes = MimikyuIcons.Download,

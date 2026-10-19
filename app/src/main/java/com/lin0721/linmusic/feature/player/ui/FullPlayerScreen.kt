@@ -242,8 +242,7 @@ fun FullPlayerScreen(
     var shareSheetInitialTab by remember { mutableStateOf(ShareCardTab.TRACK) }
 
     fun shareCurrentSong(initialTab: ShareCardTab = ShareCardTab.TRACK) {
-        shareSheetInitialTab = initialTab
-        showMimikyuShareSheet = true
+        com.lin0721.linmusic.core.ui.components.ToastManager.showToast("Feature under development")
     }
 
     val listState = rememberLazyListState()
