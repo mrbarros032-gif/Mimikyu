@@ -98,7 +98,7 @@ fun SearchBarItem(
                     .weight(1f)
                     .height(SearchBarHeight)
                     .clip(RoundedCornerShape(RadiusCompact))
-                    .background(Color.White.copy(alpha = 0.14f)),
+                    .background(Color.White.copy(alpha = 0.24f)),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Spacer(Modifier.width(12.dp))

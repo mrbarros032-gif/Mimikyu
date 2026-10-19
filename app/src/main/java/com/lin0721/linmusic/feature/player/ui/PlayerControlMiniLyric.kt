@@ -57,7 +57,7 @@ fun MiniLyricLine(
                 indication = null,
                 onClick = onOpenFullScreen
             ),
-        contentAlignment = Alignment.BottomStart
+        contentAlignment = Alignment.TopStart
     ) {
         if (currentText.isNotBlank()) {
             AnimatedContent(

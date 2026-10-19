@@ -204,7 +204,7 @@ fun FullPlayerCoverArt(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = MimikyuSpacing.md, bottom = MimikyuSpacing.sm),
+            .padding(top = 12.dp, bottom = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         FullPlayerSourceBar(
@@ -216,7 +216,7 @@ fun FullPlayerCoverArt(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = MimikyuSpacing.lg)
-                .padding(bottom = 44.dp)
+                .padding(bottom = 38.dp)
         )
 
         FullPlayerCoverPager(
@@ -224,12 +224,14 @@ fun FullPlayerCoverArt(
             currentIndex = currentIndex,
             fallbackCoverUrl = coverUrl,
             onPlayIndex = onPlayIndex,
-            contentPadding = MimikyuSpacing.lg + coverExtraInset,
+            contentPadding = 0.dp,
             shape = RoundedCornerShape(RadiusCompact),
             elevation = 24.dp,
-            pageSpacing = 16.dp,
+            pageSpacing = 24.dp,
             onCurrentBitmapLoaded = onCurrentBitmapLoaded,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MimikyuSpacing.lg + coverExtraInset)
         )
     }
 }
