@@ -53,6 +53,7 @@ fun PlaylistContent(
     likedSongIds: Set<Long>,
     collectState: PlaylistCollectState,
     isLoggedIn: Boolean,
+    userProfile: com.lin0721.linmusic.core.auth.UserProfile? = null,
     recommendedSongs: List<Track>,
     onBack: () -> Unit,
     onArtistClick: (Long) -> Unit,
@@ -138,9 +139,8 @@ fun PlaylistContent(
     } else {
         playlist.tracks.any { it.id == targetTrackId }
     }
-    // LazyColumn  of ：header +  of /
+    // LazyColumn item count before track list: header + optional date pickers
     val trackListStartIndex = 1 +
-        (if (canRemoveFromPlaylist && !isDailyRecommend) 1 else 0) +
         (if (playlist.id == -1L && showHistoryDatePicker) 1 else 0) +
         (if (playlist.id == -2L) 1 else 0)
 
@@ -256,6 +256,12 @@ fun PlaylistContent(
                         onMoreClick         = onMoreClick,
                         isLikedSongsPlaylistView = isLikedSongsPlaylistView,
                         isOwnedPlaylist     = canRemoveFromPlaylist,
+                        userProfile         = userProfile,
+                        onAddMusicClick     = onAddMusicClick,
+                        onEditOrderClick    = {
+                            sortOption = PlaylistSortOption.DEFAULT
+                            onEditOrderClick()
+                        },
                         onShareClick        = onShareClick,
                         onDownloadClick     = onDownloadClick,
                         onAddToQueueClick   = {
@@ -275,32 +281,6 @@ fun PlaylistContent(
                         },
                         onBack = onBack
                     )
-                }
-            }
-
-            // Playlists；SearchExpandConfirmCollapse
-            if (canRemoveFromPlaylist && !isDailyRecommend) {
-                item(key = "action_pills") {
-                    AnimatedVisibility(
-                        visible = !searchFullyRevealed,
-                        enter   = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-                        exit    = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top)
-                    ) {
-                        PlaylistActionPillsRow(
-                            isOwnedPlaylist = canRemoveFromPlaylist,
-                            isTracksEmpty = playlist.tracks.isEmpty(),
-                            currentSortOption = sortOption,
-                            onAddMusicClick = onAddMusicClick,
-                            onEditOrderClick = {
-                                // of Playlists。，，
-                                // Save，
-                                sortOption = PlaylistSortOption.DEFAULT
-                                onEditOrderClick()
-                            },
-                            onSortClick = { showSortSheet = true },
-                            onEditInfoClick = onEditInfoClick
-                        )
-                    }
                 }
             }
 
@@ -391,6 +371,8 @@ fun PlaylistContent(
                 onQueryChange      = { searchQuery = it },
                 topPadding         = overlayHeight,
                 backgroundColor    = dominantColor,
+                isOpen             = searchFullyRevealed,
+                onClose            = { searchBarRevealState.close() },
                 modifier           = Modifier
                     .onSizeChanged { searchBarRevealState.searchBarHeightPx = it.height.toFloat() }
                     .graphicsLayer {

@@ -46,7 +46,8 @@ data class Track(
     val publishTime: Long = 0,
     val dt: Long = 0,
     // SongsPlay and Download
-    val privilege: SongPrivilege? = null
+    val privilege: SongPrivilege? = null,
+    val localUri: String? = null
 )
 
 // SongsDetails
@@ -80,7 +81,8 @@ data class PlaylistDetail(
     // PlaylistsSearch（cloudsearch type=1000），Details tracks ，，
     val trackCount: Int = 0,
     // id ；playlist/detail  of  tracks （1000）， song/detail
-    val trackIds: List<PlaylistTrackId> = emptyList()
+    val trackIds: List<PlaylistTrackId> = emptyList(),
+    val isEditable: Boolean = false
 )
 
 @Serializable

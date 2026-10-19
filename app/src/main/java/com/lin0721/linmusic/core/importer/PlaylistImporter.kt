@@ -48,7 +48,8 @@ class PlaylistImporter(
     private val metadataEnricher: com.lin0721.linmusic.core.metadata.MetadataEnricher? = null,
     private val likedSongsRepository: LikedSongsRepository? = null,
     private val userPreferences: UserPreferences? = null,
-    private val songLikeRepository: SongLikeRepository? = null
+    private val songLikeRepository: SongLikeRepository? = null,
+    private val localPlaylistStore: com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore? = null
 ) {
 
     companion object {
@@ -399,11 +400,22 @@ class PlaylistImporter(
             description = "Imported playlist ($total tracks)"
         )
 
+        localPlaylistStore?.saveOrUpdatePlaylist(
+            com.lin0721.linmusic.core.userplaylist.StoredCustomPlaylist(
+                id = detail.id,
+                name = playlistName,
+                coverImgUrl = detail.coverImgUrl,
+                description = "Imported playlist ($total tracks)",
+                tracks = placeholderTracks,
+                updateTime = System.currentTimeMillis()
+            )
+        )
+
         playlistMutationBus.tryEmit(PlaylistMutationEvent.Created(detail.id))
         onProgress("Playlist created instantly! Resolving in background...", total, total)
 
         bgScope.launch {
-            resolveTracksInBackground(detail.id, parsedTracks, placeholderTracks)
+            resolveTracksInBackground(detail.id, playlistName, parsedTracks, placeholderTracks)
         }
 
         return ImportPlaylistResult(
@@ -416,6 +428,7 @@ class PlaylistImporter(
 
     private suspend fun resolveTracksInBackground(
         playlistId: Long,
+        playlistName: String,
         parsedTracks: List<ParsedTrackInfo>,
         initialTracks: List<Track>
     ) {
@@ -513,6 +526,16 @@ class PlaylistImporter(
 
             if ((i + 1) % 5 == 0 || i == parsedTracks.lastIndex) {
                 firestorePlaylistManager.updatePlaylistTracks(playlistId, currentTracks)
+                localPlaylistStore?.saveOrUpdatePlaylist(
+                    com.lin0721.linmusic.core.userplaylist.StoredCustomPlaylist(
+                        id = playlistId,
+                        name = playlistName,
+                        coverImgUrl = currentTracks.firstOrNull { it.al.picUrl.isNotBlank() }?.al?.picUrl.orEmpty(),
+                        description = "Imported playlist (${currentTracks.size} tracks)",
+                        tracks = currentTracks,
+                        updateTime = System.currentTimeMillis()
+                    )
+                )
                 playlistMutationBus.tryEmit(PlaylistMutationEvent.Updated(playlistId))
             }
 

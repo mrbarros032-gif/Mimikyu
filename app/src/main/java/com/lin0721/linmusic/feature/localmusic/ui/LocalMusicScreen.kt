@@ -79,6 +79,10 @@ import com.lin0721.linmusic.LocalBottomOverlayInset
 import com.lin0721.linmusic.core.localmusic.LocalCoverArtCache
 import com.lin0721.linmusic.core.localmusic.LocalTrack
 import com.lin0721.linmusic.core.localmusic.LocalTrackSource
+import com.lin0721.linmusic.core.model.Album
+import com.lin0721.linmusic.core.model.Artist
+import com.lin0721.linmusic.core.model.Track
+import com.lin0721.linmusic.core.player.innertube.YouTubeIdRegistry
 import com.lin0721.linmusic.core.ui.components.EmptyState
 import com.lin0721.linmusic.core.ui.components.ErrorState
 import com.lin0721.linmusic.core.ui.components.LoginBottomSheet
@@ -461,6 +465,20 @@ fun LocalMusicScreen(
                     onDismiss = { viewModel.closeTrackMenu() },
                     onPlayClick = { viewModel.playTrack(track) },
                     onPlayNextClick = { viewModel.playNext(track) },
+                    onAddToPlaylistClick = {
+                        val syntheticId = -track.mediaStoreId
+                        val trackObj = Track(
+                            id = syntheticId,
+                            name = track.title,
+                            ar = listOf(Artist(id = 0L, name = track.artist)),
+                            al = Album(id = 0L, name = track.album ?: "", picUrl = coverUrl ?: ""),
+                            dt = track.durationMs,
+                            localUri = track.uri.toString()
+                        )
+                        YouTubeIdRegistry.registerTrack(trackObj)
+                        collectSongId = syntheticId
+                        viewModel.prepareCollectDialog(syntheticId)
+                    },
                     onShareClick = { shareLocalTrackFile(context, track) },
                     onDetailClick = { viewModel.openDetail(track) },
                     onDeleteClick = { deleteTarget = track }

@@ -116,5 +116,13 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() 
         && resource.data.uid == request.auth.uid;
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // 3. App Announcements & Updates Broadcast
+    // ─────────────────────────────────────────────────────────────
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if false; // Admin managed via Firebase Console
+    }
   }
 }

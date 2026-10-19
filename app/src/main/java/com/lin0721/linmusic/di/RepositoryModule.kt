@@ -209,7 +209,8 @@ val repositoryModule = module {
             metadataEnricher = getOrNull(),
             likedSongsRepository = getOrNull<LikedSongsRepository>(),
             userPreferences = getOrNull<com.lin0721.linmusic.core.auth.UserPreferences>(),
-            songLikeRepository = getOrNull<SongLikeRepository>()
+            songLikeRepository = getOrNull<SongLikeRepository>(),
+            localPlaylistStore = getOrNull<com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore>()
         )
     }
 }

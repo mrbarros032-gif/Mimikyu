@@ -67,7 +67,7 @@ class SettingsViewModel(
 
     val playWithOtherApps = settingsPreferences.playWithOtherApps.asState(false)
 
-    val resumeAfterExternalInterruption = settingsPreferences.resumeAfterExternalInterruption.asState(true)
+    val resumeAfterExternalInterruption = settingsPreferences.resumeAfterExternalInterruption.asState(false)
 
     val crossfadeEnabled = settingsPreferences.crossfadeEnabled.asState(false)
 
@@ -86,6 +86,10 @@ class SettingsViewModel(
     val carMode = settingsPreferences.carMode.asState(false)
 
     val showCreateEntry = settingsPreferences.showCreateEntry.asState(true)
+
+    val deezerArl = settingsPreferences.deezerArl.asState("")
+
+    val tidalToken = settingsPreferences.tidalToken.asState("")
 
     val lyricTextSize = settingsPreferences.lyricTextSize.asState(18)
 
@@ -500,6 +504,20 @@ class SettingsViewModel(
             }.onFailure { AppLogger.e(TAG, "Failed to clear other temp files", it) }
             _otherCacheSize.value = 0L
             _toastEvent.emit("Other temporary files cleared")
+        }
+    }
+
+    fun updateDeezerArl(arl: String) {
+        viewModelScope.launch {
+            settingsPreferences.saveDeezerArl(arl)
+            _toastEvent.emit("Deezer ARL updated")
+        }
+    }
+
+    fun updateTidalToken(token: String) {
+        viewModelScope.launch {
+            settingsPreferences.saveTidalToken(token)
+            _toastEvent.emit("Tidal Token updated")
         }
     }
 }

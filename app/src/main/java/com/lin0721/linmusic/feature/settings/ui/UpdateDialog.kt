@@ -46,8 +46,12 @@ fun UpdateDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            val channelSuffix = if (info.isPrerelease) " (Beta)" else ""
-            Text("New version found: ${info.versionName}$channelSuffix", color = Color.White, fontWeight = FontWeight.Bold)
+            val titleText = info.title?.takeIf { it.isNotBlank() }
+                ?: run {
+                    val channelSuffix = if (info.isPrerelease) " (Beta)" else ""
+                    "New version found: ${info.versionName}$channelSuffix"
+                }
+            Text(titleText, color = Color.White, fontWeight = FontWeight.Bold)
         },
         text = {
             Column {

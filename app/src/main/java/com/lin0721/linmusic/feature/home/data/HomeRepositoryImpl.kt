@@ -24,6 +24,7 @@ import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.firstOrNull
@@ -94,7 +95,9 @@ class HomeRepositoryImpl(
                 } else emptyList()
 
                 val exploreDeferred = async {
-                    runCatching { YouTube.explore().getOrNull() }.getOrNull()
+                    withTimeoutOrNull(4500L) {
+                        runCatching { YouTube.explore().getOrNull() }.getOrNull()
+                    }
                 }
 
                 // 1. YouTube Mixes for You (Powered by Top Artist & Last.fm Similar Artists)
@@ -104,10 +107,12 @@ class HomeRepositoryImpl(
                     else -> "Rock Mix"
                 }
                 val mixesDeferred = async {
-                    runCatching {
-                        YouTube.search(mixQuery, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
-                            ?: YouTube.search("$resolvedGenre Mix", YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
-                    }.getOrNull()
+                    withTimeoutOrNull(4500L) {
+                        runCatching {
+                            YouTube.search(mixQuery, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
+                                ?: YouTube.search("$resolvedGenre Mix", YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
+                        }.getOrNull()
+                    }
                 }
 
                 // 2. Curated Featured Playlists (YouTube Music)
@@ -117,10 +122,12 @@ class HomeRepositoryImpl(
                     else -> "Today Top Hits playlist"
                 }
                 val recommendedPlaylistsDeferred = async {
-                    runCatching {
-                        YouTube.search(primaryPlaylistQuery, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
-                            ?: YouTube.search(primaryPlaylistQuery, YouTube.SearchFilter.FILTER_COMMUNITY_PLAYLIST).getOrNull()
-                    }.getOrNull()
+                    withTimeoutOrNull(4500L) {
+                        runCatching {
+                            YouTube.search(primaryPlaylistQuery, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
+                                ?: YouTube.search(primaryPlaylistQuery, YouTube.SearchFilter.FILTER_COMMUNITY_PLAYLIST).getOrNull()
+                        }.getOrNull()
+                    }
                 }
 
                 // 3. Top Albums For You (YouTube Albums)
@@ -130,18 +137,22 @@ class HomeRepositoryImpl(
                     else -> "Top Albums"
                 }
                 val topAlbumsDeferred = async {
-                    runCatching {
-                        YouTube.search(topAlbumQuery, YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
-                    }.getOrNull()
+                    withTimeoutOrNull(4500L) {
+                        runCatching {
+                            YouTube.search(topAlbumQuery, YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
+                        }.getOrNull()
+                    }
                 }
 
                 // 4. Last.fm Similar Artist Albums ("More Like [Artist]")
                 val similarArtistForAlbums = lastFmSimilarArtists.firstOrNull()
                 val lastFmSimilarAlbumsDeferred = if (similarArtistForAlbums != null) {
                     async {
-                        runCatching {
-                            YouTube.search(similarArtistForAlbums, YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
-                        }.getOrNull()
+                        withTimeoutOrNull(4500L) {
+                            runCatching {
+                                YouTube.search(similarArtistForAlbums, YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
+                            }.getOrNull()
+                        }
                     }
                 } else null
 
@@ -156,25 +167,31 @@ class HomeRepositoryImpl(
                     vibePool.random()
                 }
                 val moodsGenresPlaylistsDeferred = async {
-                    runCatching {
-                        YouTube.search("$chosenVibe playlist", YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
-                            ?: YouTube.search("Chill playlist", YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
-                    }.getOrNull()
+                    withTimeoutOrNull(4500L) {
+                        runCatching {
+                            YouTube.search("$chosenVibe playlist", YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
+                                ?: YouTube.search("Chill playlist", YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).getOrNull()
+                        }.getOrNull()
+                    }
                 }
 
                 // 6. Genre Albums
                 val genreAlbumsDeferred = async {
-                    runCatching {
-                        YouTube.search("$resolvedGenre album", YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
-                    }.getOrNull()
+                    withTimeoutOrNull(4500L) {
+                        runCatching {
+                            YouTube.search("$resolvedGenre album", YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
+                        }.getOrNull()
+                    }
                 }
 
                 // 7. Essential / Greatest Albums
                 val essentialAlbumsDeferred = async {
-                    runCatching {
-                        YouTube.search("Essential albums", YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
-                            ?: YouTube.search("Greatest hits", YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
-                    }.getOrNull()
+                    withTimeoutOrNull(4500L) {
+                        runCatching {
+                            YouTube.search("Essential albums", YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
+                                ?: YouTube.search("Greatest hits", YouTube.SearchFilter.FILTER_ALBUM).getOrNull()
+                        }.getOrNull()
+                    }
                 }
 
                 val exploreResult = exploreDeferred.await()

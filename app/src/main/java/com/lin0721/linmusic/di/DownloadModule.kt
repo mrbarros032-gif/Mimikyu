@@ -34,7 +34,8 @@ val downloadModule = module {
             settingsPreferences = get(),
             notificationHelper = get(),
             playbackRepository = get(),
-            downloadClient = get(named(DOWNLOAD_CLIENT))
+            downloadClient = get(named(DOWNLOAD_CLIENT)),
+            externalLyricsService = get()
         )
     }
 

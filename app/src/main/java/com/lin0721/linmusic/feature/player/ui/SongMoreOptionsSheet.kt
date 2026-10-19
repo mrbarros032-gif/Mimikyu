@@ -214,18 +214,6 @@ fun SongMoreOptionsSheet(
                     }
                 )
 
-                // 7. Share
-                OptionRow(
-                    iconRes = MimikyuIcons.Share,
-                    text = "Share",
-                    onClick = {
-                        scope.launch {
-                            sheetState.hide()
-                            onDismiss()
-                            onShareClick()
-                        }
-                    }
-                )
 
                 // 8. Download
                 OptionRow(

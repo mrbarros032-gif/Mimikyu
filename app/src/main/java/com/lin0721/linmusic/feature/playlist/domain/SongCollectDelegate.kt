@@ -48,18 +48,19 @@ class SongCollectDelegate(
 
     // Current of PlaylistsSongs；Playlists
     suspend fun prepare(songId: Long, likedSongIds: Set<Long>, onToast: suspend (String) -> Unit) {
-        val profile = userPreferences.userProfile.first() ?: return
+        val profile = userPreferences.userProfile.first()
+        val uid = profile?.uid ?: 0L
 
         // of Playlists，
-        val cachedPlaylists = userPlaylistsCache[profile.uid]
+        val cachedPlaylists = userPlaylistsCache[uid]
         val playlists = if (cachedPlaylists != null) {
             cachedPlaylists
         } else {
             _state.update { it.copy(songId = songId, isLoading = true, collectItems = emptyList()) }
-            val result = userPlaylistRepository.getUserPlaylists(profile.uid).firstOrNull()
-            val fetched = result?.getOrNull()?.filter { it.userId == profile.uid }
+            val result = userPlaylistRepository.getUserPlaylists(uid).firstOrNull()
+            val fetched = result?.getOrNull()?.filter { it.userId == uid }
             if (fetched != null) {
-                userPlaylistsCache[profile.uid] = fetched
+                userPlaylistsCache[uid] = fetched
                 fetched
             } else {
                 _state.update { it.copy(isLoading = false) }
@@ -70,7 +71,7 @@ class SongCollectDelegate(
 
         // Playlists，“Liked Songs”，
         val initialItems = playlists.map { playlist ->
-            val contains = if (isLikedSongsPlaylist(playlist.name, playlist.id, profile.uid)) {
+            val contains = if (profile != null && isLikedSongsPlaylist(playlist.name, playlist.id, profile.uid)) {
                 likedSongIds.contains(songId)
             } else {
                 playlistTrackIdsCache[playlist.id]?.contains(songId) ?: false
@@ -87,7 +88,7 @@ class SongCollectDelegate(
 
         // Songs ID  of Playlists，Moments
         val unvisitedPlaylists = playlists.filter { playlist ->
-            !isLikedSongsPlaylist(playlist.name, playlist.id, profile.uid) && !playlistTrackIdsCache.containsKey(playlist.id)
+            (profile == null || !isLikedSongsPlaylist(playlist.name, playlist.id, profile.uid)) && !playlistTrackIdsCache.containsKey(playlist.id)
         }
         if (unvisitedPlaylists.isEmpty()) return
 
@@ -165,9 +166,8 @@ class SongCollectDelegate(
             ?.onSuccess {
                 onToast("Playlist created and tracks added")
                 val profile = userPreferences.userProfile.first()
-                if (profile != null) {
-                    userPlaylistsCache.remove(profile.uid)
-                }
+                val uid = profile?.uid ?: 0L
+                userPlaylistsCache.remove(uid)
                 prepare(songId, likedSongIds, onToast)
             }
             ?.onFailure { onToast(it.toUserMessage(resourceProvider)) }

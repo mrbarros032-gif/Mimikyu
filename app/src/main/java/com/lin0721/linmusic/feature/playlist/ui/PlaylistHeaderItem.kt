@@ -15,15 +15,17 @@ import com.lin0721.linmusic.core.ui.theme.OctoberRed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Shuffle
 import com.lin0721.linmusic.core.ui.theme.MimikyuIcons
+import com.lin0721.linmusic.core.auth.UserProfile
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -80,6 +82,9 @@ fun PlaylistHeaderItem(
     isLikedSongsPlaylistView: Boolean = false,
     isOwnedPlaylist: Boolean = false,
     isAlbum: Boolean = false,
+    userProfile: UserProfile? = null,
+    onAddMusicClick: () -> Unit = {},
+    onEditOrderClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
     onDownloadClick: () -> Unit = {},
     onAddToQueueClick: () -> Unit = {},
@@ -146,7 +151,7 @@ fun PlaylistHeaderItem(
             val totalSecs = totalDurationMs / 1000
             val hours = totalSecs / 3600
             val mins = (totalSecs % 3600) / 60
-            if (hours > 0) "${hours} hr ${mins} min" else "${mins} min"
+            if (hours > 0) "${hours}h ${mins}min" else if (mins > 0) "${mins} min" else "< 1 min"
         } else ""
     }
 
@@ -342,24 +347,123 @@ fun PlaylistHeaderItem(
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
 
-            val displayAuthor = featuredArtistsText
             val totalTrackCount = if (playlist.trackIds.isNotEmpty()) playlist.trackIds.size else playlist.tracks.size
             val songText = if (totalTrackCount > 0) "$totalTrackCount songs" else ""
-            val durationText = if (durationFormatted.isNotBlank()) durationFormatted else ""
-            val subtitle = listOf(displayAuthor, songText, durationText)
-                .filter { it.isNotBlank() }
-                .joinToString("  •  ")
 
-            Text(
-                text = subtitle,
-                color = Color.White.copy(alpha = 0.7f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (isOwnedPlaylist) {
+                // Creator info row: circular avatar + creator username (no + for collaboration)
+                val creatorName = remember(playlist.creator, userProfile) {
+                    playlist.creator?.nickname?.takeIf { it.isNotBlank() && it != "My Playlist" && it != "YouTube Music" }
+                        ?: userProfile?.nickname?.takeIf { it.isNotBlank() }
+                        ?: userProfile?.username?.takeIf { it.isNotBlank() }
+                        ?: "You"
+                }
+                val avatarUrl = playlist.creator?.avatarUrl?.takeIf { it.isNotBlank() }
+                    ?: userProfile?.avatarUrl?.takeIf { it.isNotBlank() }
+                    ?: ""
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (avatarUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = avatarUrl,
+                            contentDescription = creatorName,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF444444)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = creatorName.firstOrNull()?.uppercase() ?: "U",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Text(
+                        text = creatorName,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                // Globe icon + song count and total duration
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Public,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    val metaText = listOf(songText, durationFormatted)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" • ")
+                    Text(
+                        text = metaText,
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else {
+                if (featuredArtistsText.isNotBlank()) {
+                    Text(
+                        text = featuredArtistsText,
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Public,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    val metaText = listOf(songText, durationFormatted)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" • ")
+                    Text(
+                        text = metaText,
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -373,20 +477,43 @@ fun PlaylistHeaderItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left Actions: Add to library + Download + More
+                // Left Actions: Add songs / Library + Reorder + Download + More
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(22.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. Add to playlist / library (Plus circle / Check circle)
-                    Icon(
-                        painter = painterResource(if (isSubscribed) MimikyuIcons.CheckCircle else MimikyuIcons.PlusCircle),
-                        contentDescription = if (isSubscribed) "Added to your library" else "Add to library",
-                        tint = if (isSubscribed) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.72f),
-                        modifier = Modifier
-                            .size(24.dp)
-                            .pressable(MimikyuPress.Icon) { onSubscribeClick() }
-                    )
+                    // 1. Add songs (if owned/created/imported) or Save/Subscribe (if external)
+                    if (isOwnedPlaylist) {
+                        Icon(
+                            painter = painterResource(MimikyuIcons.PlusCircle),
+                            contentDescription = "Add songs to playlist",
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier
+                                .size(26.dp)
+                                .pressable(MimikyuPress.Icon) { onAddMusicClick() }
+                        )
+
+                        // Reorder icon in tray for owned playlist
+                        if (playlist.tracks.isNotEmpty()) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.Sort,
+                                contentDescription = "Reorder playlist",
+                                tint = Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .pressable(MimikyuPress.Icon) { onEditOrderClick() }
+                            )
+                        }
+                    } else if (!isLikedSongsPlaylistView) {
+                        Icon(
+                            painter = painterResource(if (isSubscribed) MimikyuIcons.CheckCircle else MimikyuIcons.PlusCircle),
+                            contentDescription = if (isSubscribed) "Added to your library" else "Add to library",
+                            tint = if (isSubscribed) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.72f),
+                            modifier = Modifier
+                                .size(26.dp)
+                                .pressable(MimikyuPress.Icon) { onSubscribeClick() }
+                        )
+                    }
 
                     // 2. Download icon
                     Icon(

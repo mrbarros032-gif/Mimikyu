@@ -130,6 +130,7 @@ fun ColumnScope.FullScreenLyricsList(
             ),
             textColor = Color.White,
             itemSpacing = lineSpacing.dp,
+            useBlurEffect = advancedKaraokeEffect,
             showTranslation = (secondaryMode == "translation"),
             showPhonetic = (secondaryMode == "roma"),
             anchor = LyricsAnchor.Fraction(0.38f),

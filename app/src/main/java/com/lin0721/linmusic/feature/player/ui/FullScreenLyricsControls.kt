@@ -529,28 +529,11 @@ fun FullScreenLyricsSettingsSheet(
     }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// of Play（ +  + Play）
-// ────────────────────────────────────────────────────────────────────────────
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FullScreenControls(
-    isPlaying: Boolean,
+private fun FullScreenProgressBar(
     currentPositionProvider: () -> Long,
     duration: Long,
     onSeek: (Long) -> Unit,
-    onTogglePlay: () -> Unit,
-    onPlayNext: () -> Unit,
-    onPlayPrevious: () -> Unit,
-    playMode: PlayMode,
-    onToggleShuffle: () -> Unit,
-    onToggleRepeat: () -> Unit,
-    secondaryMode: String,
-    hasTranslation: Boolean,
-    hasRoma: Boolean,
-    onToggleSecondaryMode: () -> Unit,
-    onShareLyrics: () -> Unit,
-    onLyricsSettingsClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var isSeeking by remember { mutableStateOf(false) }
@@ -561,26 +544,7 @@ fun FullScreenControls(
         if (isSeeking) seekPosition else currentPosition.toFloat() / duration
     } else 0f
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = MimikyuSpacing.lg)
-            .padding(bottom = 20.dp)
-    ) {
-        // 1. Toolbar (Secondary mode toggle, Share, Lyrics settings)
-        FullScreenLyricsToolbar(
-            secondaryMode = secondaryMode,
-            hasTranslation = hasTranslation,
-            hasRoma = hasRoma,
-            onToggleSecondaryMode = onToggleSecondaryMode,
-            onShareClick = onShareLyrics,
-            onSettingsClick = onLyricsSettingsClick
-        )
-
-        Spacer(modifier = Modifier.height(MimikyuSpacing.xs))
-
-        // 2.
+    Column(modifier = modifier.fillMaxWidth()) {
         var trackWidthPx by remember { mutableFloatStateOf(0f) }
         val density = LocalDensity.current
 
@@ -623,7 +587,6 @@ fun FullScreenControls(
                 ),
             contentAlignment = Alignment.CenterStart
         ) {
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -631,7 +594,7 @@ fun FullScreenControls(
                     .clip(RoundedCornerShape(1.5.dp))
                     .background(Color.White.copy(alpha = 0.2f))
             )
-            // Play
+            // Play Progress
             Box(
                 modifier = Modifier
                     .fillMaxWidth(progress.coerceIn(0f, 1f))
@@ -653,7 +616,7 @@ fun FullScreenControls(
             )
         }
 
-        // 3. CurrentPlay and （ and ）
+        // Current Play time and Duration
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -664,6 +627,58 @@ fun FullScreenControls(
             Text(formatTime(displayPosition), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             Text(formatTime(duration), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// of Play（ +  + Play）
+// ────────────────────────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FullScreenControls(
+    isPlaying: Boolean,
+    currentPositionProvider: () -> Long,
+    duration: Long,
+    onSeek: (Long) -> Unit,
+    onTogglePlay: () -> Unit,
+    onPlayNext: () -> Unit,
+    onPlayPrevious: () -> Unit,
+    playMode: PlayMode,
+    onToggleShuffle: () -> Unit,
+    onToggleRepeat: () -> Unit,
+    secondaryMode: String,
+    hasTranslation: Boolean,
+    hasRoma: Boolean,
+    onToggleSecondaryMode: () -> Unit,
+    onShareLyrics: () -> Unit,
+    onLyricsSettingsClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = MimikyuSpacing.lg)
+            .padding(bottom = 20.dp)
+    ) {
+        // 1. Toolbar (Secondary mode toggle, Share, Lyrics settings)
+        FullScreenLyricsToolbar(
+            secondaryMode = secondaryMode,
+            hasTranslation = hasTranslation,
+            hasRoma = hasRoma,
+            onToggleSecondaryMode = onToggleSecondaryMode,
+            onShareClick = onShareLyrics,
+            onSettingsClick = onLyricsSettingsClick
+        )
+
+        Spacer(modifier = Modifier.height(MimikyuSpacing.xs))
+
+        // 2. Isolated Progress Bar (ticker decoupled from parent toolbar & transport buttons)
+        FullScreenProgressBar(
+            currentPositionProvider = currentPositionProvider,
+            duration = duration,
+            onSeek = onSeek
+        )
 
         Spacer(modifier = Modifier.height(MimikyuSpacing.sm))
 

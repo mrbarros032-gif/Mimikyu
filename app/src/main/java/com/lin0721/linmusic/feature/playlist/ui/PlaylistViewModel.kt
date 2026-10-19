@@ -477,7 +477,8 @@ class PlaylistViewModel(
                 coverUrl = studioCover,
                 videoId = vid.ifBlank { null },
                 album = t.al.name.takeIf { it.isNotBlank() },
-                durationSec = (t.dt / 1000).toInt()
+                durationSec = (t.dt / 1000).toInt(),
+                localUri = t.localUri
             )
         }
         val targetIndex = queueItems.indexOfFirst { it.songId == track.id }.coerceAtLeast(0)
@@ -497,7 +498,8 @@ class PlaylistViewModel(
                 coverUrl = studioCover,
                 videoId = vid.ifBlank { null },
                 album = t.al.name.takeIf { it.isNotBlank() },
-                durationSec = (t.dt / 1000).toInt()
+                durationSec = (t.dt / 1000).toInt(),
+                localUri = t.localUri
             )
         }
         playerManager.playQueue(queueItems, 0, playlistName)
@@ -514,7 +516,8 @@ class PlaylistViewModel(
             coverUrl = studioCover,
             videoId = vid.ifBlank { null },
             album = track.al.name.takeIf { it.isNotBlank() },
-            durationSec = (track.dt / 1000).toInt()
+            durationSec = (track.dt / 1000).toInt(),
+            localUri = track.localUri
         )
         playerManager.addToPlayNext(listOf(queueItem))
         viewModelScope.launch { _toastEvent.emit("Added to play next") }
@@ -531,7 +534,8 @@ class PlaylistViewModel(
                 coverUrl = studioCover,
                 videoId = vid.ifBlank { null },
                 album = t.al.name.takeIf { it.isNotBlank() },
-                durationSec = (t.dt / 1000).toInt()
+                durationSec = (t.dt / 1000).toInt(),
+                localUri = t.localUri
             )
         }
         playerManager.addToPlayNext(queueItems)
@@ -1284,7 +1288,8 @@ class PlaylistViewModel(
             DownloadTrackInfo(
                 track.id, track.name, track.ar.joinToString("/") { it.name },
                 track.al.name, track.al.picUrl.takeIf { it.isNotBlank() },
-                yearFromEpochMillis(track.publishTime)
+                yearFromEpochMillis(track.publishTime),
+                videoId = YouTubeIdRegistry.getVideoId(track.id)
             )
         }
         songDownloadManager.enqueueBatch(
@@ -1301,7 +1306,8 @@ class PlaylistViewModel(
             track.ar.joinToString("/") { it.name },
             track.al.name,
             track.al.picUrl.takeIf { it.isNotBlank() },
-            yearFromEpochMillis(track.publishTime)
+            yearFromEpochMillis(track.publishTime),
+            videoId = YouTubeIdRegistry.getVideoId(track.id)
         )
         songDownloadManager.enqueueSingle(downloadTrack, level)
         viewModelScope.launch { _toastEvent.emit("Added to download queue") }

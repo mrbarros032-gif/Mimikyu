@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -19,7 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lin0721.linmusic.core.download.DownloadPreferences
-import com.lin0721.linmusic.core.model.getQualityDisplayName
+import com.lin0721.linmusic.core.preferences.SettingsPreferences
+import com.lin0721.linmusic.core.ui.components.ToastManager
 import com.lin0721.linmusic.core.ui.theme.BackgroundDark
 import com.lin0721.linmusic.core.ui.theme.BottomSheetShape
 import com.lin0721.linmusic.core.ui.theme.DownloadedGreen
@@ -27,12 +29,14 @@ import com.lin0721.linmusic.core.ui.theme.DragHandleShape
 import com.lin0721.linmusic.core.ui.theme.MimikyuSpacing
 import org.koin.compose.koinInject
 
-// Download
-private val DOWNLOAD_QUALITIES = listOf(
-    "standard", "higher", "exhigh", "lossless", "hires", "jyeffect", "sky", "jymaster"
+data class DownloadQualityOption(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val isAvailable: Boolean,
+    val missingHint: String? = null
 )
 
-// Download
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadQualityPickerSheet(
@@ -42,6 +46,9 @@ fun DownloadQualityPickerSheet(
     maxDownloadLevel: String? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val settingsPreferences: SettingsPreferences = koinInject()
+    val deezerArl by settingsPreferences.deezerArl.collectAsStateWithLifecycle(initialValue = "")
+    val tidalToken by settingsPreferences.tidalToken.collectAsStateWithLifecycle(initialValue = "")
 
     val downloadedQuality: String? = if (songId != null) {
         val downloadPreferences: DownloadPreferences = koinInject()
@@ -50,6 +57,35 @@ fun DownloadQualityPickerSheet(
     } else {
         null
     }
+
+    val options = listOf(
+        DownloadQualityOption(
+            id = "standard",
+            title = "Standard Quality",
+            subtitle = "YouTube AAC • 128 kbps",
+            isAvailable = true
+        ),
+        DownloadQualityOption(
+            id = "high",
+            title = "High Quality",
+            subtitle = "YouTube Opus • 256 kbps",
+            isAvailable = true
+        ),
+        DownloadQualityOption(
+            id = "lossless",
+            title = "Lossless FLAC",
+            subtitle = "Deezer • 16-bit / 44.1kHz FLAC",
+            isAvailable = deezerArl.isNotBlank(),
+            missingHint = "Requires Deezer ARL in Settings > Extensions"
+        ),
+        DownloadQualityOption(
+            id = "master",
+            title = "Master Hi-Res",
+            subtitle = "Tidal • 24-bit / Hi-Res FLAC",
+            isAvailable = tidalToken.isNotBlank(),
+            missingHint = "Requires Tidal Token in Settings > Extensions"
+        )
+    )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -79,33 +115,79 @@ fun DownloadQualityPickerSheet(
                 color = Color.White,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(bottom = MimikyuSpacing.xs)
+            )
+            Text(
+                text = "Audio will be saved with synced TTML & LRC lyrics",
+                color = Color.White.copy(alpha = 0.6f),
+                fontSize = 13.sp,
                 modifier = Modifier.padding(bottom = MimikyuSpacing.md)
             )
-            DOWNLOAD_QUALITIES.forEach { quality ->
+
+            options.forEach { option ->
+                val isSelected = option.id == downloadedQuality
+                val clickableModifier = if (option.isAvailable) {
+                    Modifier.clickable { onQualitySelected(option.id) }
+                } else {
+                    Modifier.clickable {
+                        ToastManager.showToast(option.missingHint ?: "Plugin credential required")
+                    }
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onQualitySelected(quality) }
+                        .then(clickableModifier)
                         .padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = getQualityDisplayName(quality),
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (quality == downloadedQuality) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .alpha(if (option.isAvailable) 1f else 0.38f)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = option.title,
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (!option.isAvailable) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "Plugin Required",
+                                        color = Color.White.copy(alpha = 0.6f),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (option.isAvailable) option.subtitle else (option.missingHint ?: option.subtitle),
+                            color = if (option.isAvailable) Color.White.copy(alpha = 0.6f) else Color(0xFFFF8A80),
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    if (isSelected) {
                         Box(
                             modifier = Modifier
                                 .border(1.dp, DownloadedGreen, RoundedCornerShape(4.dp))
-                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = "Downloaded",
                                 color = DownloadedGreen,
-                                fontSize = 9.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }

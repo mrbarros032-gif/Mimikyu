@@ -27,14 +27,22 @@ private const val TAG = "PlaylistRepositoryImpl"
  */
 class PlaylistRepositoryImpl(
     private val firestorePlaylistManager: FirestorePlaylistManager? = null,
-    private val metadataEnricher: MetadataEnricher? = null
+    private val metadataEnricher: MetadataEnricher? = null,
+    private val localPlaylistStore: com.lin0721.linmusic.core.userplaylist.LocalCustomPlaylistStore? = null,
+    private val playlistMutationBus: com.lin0721.linmusic.core.playlistmutation.PlaylistMutationBus? = null
 ) : PlaylistRepository {
 
     override fun getPlaylistDetail(id: Long): Flow<Result<PlaylistDetail>> = flow {
+        val localDetail = localPlaylistStore?.getPlaylistDetail(id)
+        if (localDetail != null) {
+            emit(Result.success(localDetail.copy(isEditable = true)))
+            return@flow
+        }
+
         if (firestorePlaylistManager?.isFirebaseUser() == true) {
             val firestoreDetail = firestorePlaylistManager.getPlaylistDetail(id)
             if (firestoreDetail != null) {
-                emit(Result.success(firestoreDetail))
+                emit(Result.success(firestoreDetail.copy(isEditable = true)))
                 return@flow
             }
         }
@@ -197,16 +205,25 @@ class PlaylistRepositoryImpl(
     }
 
     override fun manipulatePlaylistTracks(op: String, playlistId: Long, trackIds: List<Long>): Flow<Result<Unit>> = flow {
-        if (firestorePlaylistManager?.isFirebaseUser() == true) {
-            val success = firestorePlaylistManager.manipulatePlaylistTracks(op, playlistId, trackIds)
-            if (success) {
-                emit(Result.success(Unit))
-            } else {
-                emit(Result.failure(Exception("Failed to update playlist tracks")))
+        if (localPlaylistStore?.getPlaylistDetail(playlistId) != null) {
+            if (op == "del") {
+                localPlaylistStore.removeTracks(playlistId, trackIds)
+            } else if (op == "add") {
+                val tracksToAdd = trackIds.mapNotNull { tid ->
+                    YouTubeIdRegistry.getTrack(tid)
+                }
+                if (tracksToAdd.isNotEmpty()) {
+                    localPlaylistStore.addTracks(playlistId, tracksToAdd)
+                }
+            } else if (op == "update") {
+                localPlaylistStore.updateTrackOrder(playlistId, trackIds)
             }
-        } else {
-            emit(Result.success(Unit))
         }
+        if (firestorePlaylistManager?.isFirebaseUser() == true) {
+            firestorePlaylistManager.manipulatePlaylistTracks(op, playlistId, trackIds)
+        }
+        playlistMutationBus?.tryEmit(com.lin0721.linmusic.core.playlistmutation.PlaylistMutationEvent.Updated(playlistId))
+        emit(Result.success(Unit))
     }
 
     override fun renamePlaylist(playlistId: Long, name: String): Flow<Result<Unit>> = flow {
@@ -221,6 +238,7 @@ class PlaylistRepositoryImpl(
     }
 
     override fun deletePlaylist(playlistId: Long): Flow<Result<Unit>> = flow {
+        localPlaylistStore?.deletePlaylist(playlistId)
         if (firestorePlaylistManager?.isFirebaseUser() == true) {
             firestorePlaylistManager.deletePlaylist(playlistId)
         }

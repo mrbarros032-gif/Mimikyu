@@ -7,5 +7,6 @@ data class UpdateInfo(
     val isPrerelease: Boolean,
     val changelog: String,
     val apkDownloadUrl: String,
-    val releasePageUrl: String
+    val releasePageUrl: String,
+    val title: String? = null
 )
