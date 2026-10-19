@@ -35,28 +35,29 @@ fun SongInfo(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MimikyuSpacing.lg)
-            .padding(top = 12.dp),
+            .padding(top = 16.dp, bottom = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(end = MimikyuSpacing.sm)
+                .padding(end = MimikyuSpacing.md)
         ) {
             Text(
                 text = title,
                 color = Color.White,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 modifier = Modifier.basicMarquee()
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = artist,
-                color = Color.White.copy(alpha = 0.75f),
+                color = Color.White.copy(alpha = 0.7f),
                 fontSize = 15.sp,
+                fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = if (onArtistClick != null) Modifier.clickable(onClick = onArtistClick) else Modifier
@@ -65,7 +66,7 @@ fun SongInfo(
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             MimikyuIconButton(
                 onClick = onToggleLike

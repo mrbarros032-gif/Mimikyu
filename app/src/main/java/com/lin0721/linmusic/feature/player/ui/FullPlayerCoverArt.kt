@@ -198,7 +198,7 @@ fun FullPlayerCoverArt(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = MimikyuSpacing.md, bottom = MimikyuSpacing.sm),
+            .padding(top = MimikyuSpacing.xs, bottom = MimikyuSpacing.xs),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         FullPlayerSourceBar(
@@ -210,7 +210,7 @@ fun FullPlayerCoverArt(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = MimikyuSpacing.lg)
-                .padding(bottom = 44.dp)
+                .padding(bottom = 20.dp)
         )
 
         FullPlayerCoverPager(
@@ -218,16 +218,18 @@ fun FullPlayerCoverArt(
             currentIndex = currentIndex,
             fallbackCoverUrl = coverUrl,
             onPlayIndex = onPlayIndex,
-            contentPadding = MimikyuSpacing.lg + coverExtraInset,
-            shape = RoundedCornerShape(RadiusCompact),
-            elevation = 24.dp,
-            pageSpacing = 16.dp,
-            modifier = Modifier.fillMaxWidth()
+            contentPadding = 0.dp,
+            shape = RoundedCornerShape(8.dp),
+            elevation = 0.dp,
+            pageSpacing = 24.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MimikyuSpacing.lg + coverExtraInset)
         )
     }
 }
 
-// Play：/、Collapse、Play、More
+// Source Bar: Top navigation matching Spotify player
 @Composable
 fun FullPlayerSourceBar(
     playContext: String?,
@@ -290,13 +292,16 @@ fun FullPlayerSourceBar(
             contentAlignment = Alignment.Center,
             modifier = Modifier.weight(1f)
         ) { context ->
-            val (sourceText, detailText) = when (context) {
-                null -> "NOW PLAYING" to null
-                "Search" -> "Playing from" to "Search"
-                "Daily Recommendations" -> "Playing from" to "Daily Recommendations"
-                "Daily History" -> "Playing from" to "Daily History"
-                "intelligence" -> "Playing from" to "Heartbeat Mode"
-                else -> "Playing from playlist" to context
+            val (sourceText, detailText) = when {
+                context == null -> "PLAYING FROM PLAYLIST" to null
+                context.equals("Search", ignoreCase = true) -> "Playing from" to "Search"
+                context.equals("Daily Recommendations", ignoreCase = true) -> "Playing from" to "Daily Recommendations"
+                context.equals("Daily History", ignoreCase = true) -> "Playing from" to "Daily History"
+                context.equals("intelligence", ignoreCase = true) -> "Playing from" to "Heartbeat Mode"
+                context.startsWith("playlist:", ignoreCase = true) -> "Playing from Playlist" to context.substringAfter("playlist:").trim()
+                context.startsWith("album:", ignoreCase = true) -> "Playing from Album" to context.substringAfter("album:").trim()
+                context.startsWith("artist:", ignoreCase = true) -> "Playing from Artist" to context.substringAfter("artist:").trim()
+                else -> "Playing from Playlist" to context
             }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -304,18 +309,17 @@ fun FullPlayerSourceBar(
             ) {
                 Text(
                     text = sourceText,
-                    color = Color.White.copy(alpha = 0.6f),
+                    color = Color.White.copy(alpha = 0.7f),
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (detailText != null) {
                     Text(
-                        text = "“$detailText”",
+                        text = detailText,
                         color = Color.White,
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -323,7 +327,6 @@ fun FullPlayerSourceBar(
                 }
             }
         }
-        // ，Play
         if (onToggleSidebarFullscreen != null) {
             Spacer(modifier = Modifier.width(32.dp + SidebarToggleGap))
         }
@@ -342,3 +345,4 @@ fun FullPlayerSourceBar(
         }
     }
 }
+

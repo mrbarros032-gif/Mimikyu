@@ -13,6 +13,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,7 +41,7 @@ fun ActionButtons(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MimikyuSpacing.lg)
-            .padding(top = MimikyuSpacing.sm, bottom = MimikyuSpacing.md),
+            .padding(top = 10.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -47,50 +49,65 @@ fun ActionButtons(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .weight(1f, fill = false)
-                // of ，
                 .pressable(MimikyuPress.None, onClick = onOutputDeviceClick)
         ) {
             MimikyuIconButton(
                 onClick = onOutputDeviceClick,
-                modifier = Modifier.offset(x = (-12).dp)
+                modifier = Modifier.size(28.dp)
             ) {
                 if (connectedDevice != null) {
-                    Icon(androidx.compose.ui.res.painterResource(deviceIcon(connectedDevice.type)), contentDescription = "Connect device", tint = outputDeviceTint, modifier = Modifier.size(24.dp))
+                    Icon(
+                        painter = androidx.compose.ui.res.painterResource(deviceIcon(connectedDevice.type)),
+                        contentDescription = "Connect device",
+                        tint = outputDeviceTint,
+                        modifier = Modifier.size(20.dp)
+                    )
                 } else {
-                    Icon(androidx.compose.ui.res.painterResource(com.lin0721.linmusic.core.ui.theme.MimikyuIcons.Devices), contentDescription = "Connect device", tint = outputDeviceTint, modifier = Modifier.size(24.dp))
+                    Icon(
+                        painter = androidx.compose.ui.res.painterResource(com.lin0721.linmusic.core.ui.theme.MimikyuIcons.Devices),
+                        contentDescription = "Connect device",
+                        tint = outputDeviceTint,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
             if (connectedDevice != null) {
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = deviceLabel(connectedDevice),
                     color = outputDeviceTint,
                     fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .offset(x = (-8).dp)
-                        .widthIn(max = 140.dp)
+                    modifier = Modifier.widthIn(max = 160.dp)
                 )
             }
         }
-        Row {
-            MimikyuIconButton(onClick = onShareClick) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            MimikyuIconButton(
+                onClick = onShareClick,
+                modifier = Modifier.size(28.dp)
+            ) {
                 Icon(
                     painter = androidx.compose.ui.res.painterResource(com.lin0721.linmusic.core.ui.theme.MimikyuIcons.Share),
                     contentDescription = "Share",
-                    tint = TextGray,
-                    modifier = Modifier.size(24.dp)
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(22.dp)
                 )
             }
             MimikyuIconButton(
                 onClick = onQueueClick,
-                modifier = Modifier.offset(x = 12.dp)
+                modifier = Modifier.size(28.dp)
             ) {
                 Icon(
                     painter = androidx.compose.ui.res.painterResource(com.lin0721.linmusic.core.ui.theme.MimikyuIcons.Queue),
                     contentDescription = "Queue",
-                    tint = TextGray,
-                    modifier = Modifier.size(24.dp)
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }

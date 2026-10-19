@@ -11,10 +11,10 @@ import com.lin0721.linmusic.core.player.PlayMode
 import com.lin0721.linmusic.core.ui.theme.PlayerBackdropPalette
 
 // Play of ， and  fillGapItem
-const val FullPlayerFillGapCount = 4
+const val FullPlayerFillGapCount = 3
 
 // and  of ， and  item key
-val FullPlayerPlaybackItemKeys = listOf("cover", "song_info", "mini_lyric", "progress", "controls", "actions")
+val FullPlayerPlaybackItemKeys = listOf("cover", "song_info", "progress", "controls", "actions")
 
 // Play：、Artists、、、Play、
 // fillGap ， fillTail ，、
@@ -108,14 +108,6 @@ fun LazyListScope.fullPlayerPlaybackSection(
             onToggleLike = onToggleLike,
             onArtistClick = onArtistClick,
             onAddToPlaylist = onAddToPlaylist
-        )
-    }
-
-    item(key = "mini_lyric") {
-        MiniLyricLine(
-            lyrics = songState.lyrics,
-            currentLyricIndex = currentLyricIndex,
-            isPlaying = isPlaying
         )
     }
 

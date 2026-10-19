@@ -3,10 +3,13 @@ package com.lin0721.linmusic.feature.player.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -55,10 +58,40 @@ fun PlaybackControls(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = MimikyuSpacing.lg)
-            .padding(top = MimikyuSpacing.xs),
+            .padding(top = 10.dp, bottom = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val playInteraction = remember { MutableInteractionSource() }
+        val isPressed by playInteraction.collectIsPressedAsState()
+        val buttonAlpha = remember { Animatable(1f) }
+        var clickTrigger by remember { mutableIntStateOf(0) }
+
+        LaunchedEffect(isPressed) {
+            if (isPressed) {
+                buttonAlpha.animateTo(0.70f, tween(durationMillis = 80))
+            } else if (clickTrigger == 0) {
+                buttonAlpha.animateTo(1f, tween(durationMillis = 200, easing = FastOutSlowInEasing))
+            }
+        }
+
+        LaunchedEffect(clickTrigger) {
+            if (clickTrigger > 0) {
+                buttonAlpha.snapTo(0.70f)
+                buttonAlpha.animateTo(1f, tween(durationMillis = 220, easing = FastOutSlowInEasing))
+            }
+        }
+
+        var showSpinner by remember { mutableStateOf(false) }
+        LaunchedEffect(isLoading) {
+            if (isLoading) {
+                kotlinx.coroutines.delay(350L)
+                showSpinner = true
+            } else {
+                showSpinner = false
+            }
+        }
+
         MimikyuIconButton(
             onClick = {
                 if (isRoaming) {
@@ -68,8 +101,7 @@ fun PlaybackControls(
                 } else {
                     onToggleShuffle()
                 }
-            },
-            modifier = Modifier.offset(x = (-10).dp)
+            }
         ) {
             val shuffleActive = isRoaming || isIntelligence || playMode == PlayMode.SHUFFLE
             Icon(
@@ -80,102 +112,72 @@ fun PlaybackControls(
                     }
                 ),
                 contentDescription = "Shuffle",
-                tint = if (shuffleActive) Color(0xFFFF007F) else TextGray,
-                modifier = Modifier.size(26.dp)
+                tint = if (shuffleActive) Color(0xFFFF007F) else Color.White.copy(alpha = 0.65f),
+                modifier = Modifier.size(24.dp)
             )
         }
 
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(28.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            MimikyuIconButton(onClick = onPlayPrevious, style = MimikyuPress.Transport) {
-                Icon(
-                    painter = painterResource(MimikyuIcons.SkipPrevious),
-                    contentDescription = "Previous",
-                    tint = Color.White,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
-            val playInteraction = remember { MutableInteractionSource() }
-            val isPressed by playInteraction.collectIsPressedAsState()
-            val buttonAlpha = remember { Animatable(1f) }
-            var clickTrigger by remember { mutableIntStateOf(0) }
+        MimikyuIconButton(onClick = onPlayPrevious, style = MimikyuPress.Transport) {
+            Icon(
+                painter = painterResource(MimikyuIcons.SkipPrevious),
+                contentDescription = "Previous",
+                tint = Color.White,
+                modifier = Modifier.size(32.dp)
+            )
+        }
 
-            LaunchedEffect(isPressed) {
-                if (isPressed) {
-                    buttonAlpha.animateTo(0.70f, tween(durationMillis = 80))
-                } else if (clickTrigger == 0) {
-                    buttonAlpha.animateTo(1f, tween(durationMillis = 200, easing = FastOutSlowInEasing))
-                }
-            }
-
-            LaunchedEffect(clickTrigger) {
-                if (clickTrigger > 0) {
-                    buttonAlpha.snapTo(0.70f)
-                    buttonAlpha.animateTo(1f, tween(durationMillis = 220, easing = FastOutSlowInEasing))
-                }
-            }
-
-            var showSpinner by remember { mutableStateOf(false) }
-            LaunchedEffect(isLoading) {
-                if (isLoading) {
-                    kotlinx.coroutines.delay(350L)
-                    showSpinner = true
-                } else {
-                    showSpinner = false
-                }
-            }
-
-            FloatingActionButton(
-                onClick = {
-                    clickTrigger++
-                    onTogglePlay()
-                },
-                containerColor = Color.White,
-                shape = CircleShape,
-                interactionSource = playInteraction,
-                modifier = Modifier
-                    .size(72.dp)
-                    .graphicsLayer {
-                        alpha = buttonAlpha.value
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+                .clickable(
+                    interactionSource = playInteraction,
+                    indication = null,
+                    onClick = {
+                        clickTrigger++
+                        onTogglePlay()
                     }
-            ) {
-                if (showSpinner) {
-                    androidx.compose.material3.CircularProgressIndicator(
-                        modifier = Modifier.size(36.dp),
-                        strokeWidth = 3.dp,
-                        color = Color.Black
-                    )
-                } else {
-                    Icon(
-                        if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        tint = Color.Black,
-                        modifier = Modifier.size(42.dp)
-                    )
-                }
-            }
-            MimikyuIconButton(onClick = onPlayNext, style = MimikyuPress.Transport) {
+                )
+                .graphicsLayer {
+                    alpha = buttonAlpha.value
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            if (showSpinner) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(28.dp),
+                    strokeWidth = 3.dp,
+                    color = Color.Black
+                )
+            } else {
                 Icon(
-                    painter = painterResource(MimikyuIcons.SkipNext),
-                    contentDescription = "Next",
-                    tint = Color.White,
-                    modifier = Modifier.size(36.dp)
+                    if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    tint = Color.Black,
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
 
+        MimikyuIconButton(onClick = onPlayNext, style = MimikyuPress.Transport) {
+            Icon(
+                painter = painterResource(MimikyuIcons.SkipNext),
+                contentDescription = "Next",
+                tint = Color.White,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+
         MimikyuIconButton(
-            onClick = onToggleRepeat,
-            modifier = Modifier.offset(x = 10.dp)
+            onClick = onToggleRepeat
         ) {
             val repeatActive = playMode == PlayMode.SINGLE_LOOP || playMode == PlayMode.LIST_LOOP
             Icon(
                 painter = painterResource(if (playMode == PlayMode.SINGLE_LOOP) MimikyuIcons.RepeatOnce else MimikyuIcons.Repeat),
                 contentDescription = "Repeat",
-                tint = if (repeatActive) Color(0xFFFF007F) else TextGray,
-                modifier = Modifier.size(26.dp)
+                tint = if (repeatActive) Color(0xFFFF007F) else Color.White.copy(alpha = 0.65f),
+                modifier = Modifier.size(24.dp)
             )
         }
     }
