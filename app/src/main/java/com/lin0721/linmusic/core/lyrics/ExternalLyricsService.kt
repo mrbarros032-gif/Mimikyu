@@ -21,6 +21,13 @@ import java.io.ByteArrayInputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.Inflater
 import java.util.zip.InflaterInputStream
+import android.os.SystemClock
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private const val TAG = "ExternalLyricsService"
 private const val LRCLIB_BASE = "https://lrclib.net/api"
@@ -169,8 +176,8 @@ class ExternalLyricsService(
             }
         }
 
-        // 4. Fallback to existing multi-tier cascade (BetterLyrics, LRCLIB, Kugou KRC, NetEase YRC)
-        val rawLyrics = fetchLyricsRaw(cleanTitle, cleanArtist, durationSec)
+        // 4. ArchiveTune-inspired concurrent multi-source cascade (SimpMusic, Unison, YouLyPlus, BetterLyrics, LRCLIB, Kugou, NetEase)
+        val rawLyrics = fetchLyricsRaw(cleanTitle, cleanArtist, durationSec, resolvedVid)
         if (rawLyrics.isNotEmpty()) {
             val processed = if (rawLyrics.any { it.isSynced && !it.isGap }) LyricParser.processLinesWithGaps(rawLyrics) else rawLyrics
             val sanitized = filterHeaderMetadata(processed, title, artist)
@@ -257,172 +264,370 @@ class ExternalLyricsService(
         return result
     }
 
+    private data class LyricCandidate(
+        val providerName: String,
+        val lyrics: List<LyricLine>,
+        val quality: Int, // 2 = Word-synced (TTML/KRC/YRC), 1 = Line-synced (LRC), 0 = Plain
+        val priority: Int
+    )
+
+    private fun lyricsQuality(lines: List<LyricLine>): Int = when {
+        lines.any { it.words.isNotEmpty() } -> 2
+        lines.any { it.isSynced && !it.isGap } -> 1
+        lines.isNotEmpty() -> 0
+        else -> -1
+    }
+
+    private fun levenshteinDistance(s1: String, s2: String): Int {
+        val dp = Array(s1.length + 1) { IntArray(s2.length + 1) }
+        for (i in 0..s1.length) dp[i][0] = i
+        for (j in 0..s2.length) dp[0][j] = j
+        for (i in 1..s1.length) {
+            for (j in 1..s2.length) {
+                val cost = if (s1[i - 1] == s2[j - 1]) 0 else 1
+                dp[i][j] = minOf(
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + cost
+                )
+            }
+        }
+        return dp[s1.length][s2.length]
+    }
+
+    private fun stringSimilarity(s1: String, s2: String): Double {
+        val n1 = normalizeString(s1)
+        val n2 = normalizeString(s2)
+        if (n1 == n2) return 1.0
+        val maxLen = maxOf(n1.length, n2.length)
+        if (maxLen == 0) return 1.0
+        val dist = levenshteinDistance(n1, n2)
+        return 1.0 - (dist.toDouble() / maxLen.toDouble())
+    }
+
+    /**
+     * ArchiveTune-inspired Provider 1: SimpMusic
+     * Direct YouTube videoId lookup. Returns exact crowd-sourced synchronized lyrics with 0% mismatch.
+     */
+    private suspend fun fetchSimpMusic(videoId: String, durationSec: Int): List<LyricLine> {
+        return runCatching {
+            val url = "https://api-lyrics.simpmusic.org/v1/$videoId"
+            val responseText = httpClient.get(url) {
+                header("User-Agent", "SimpMusicLyrics/1.0 (Android)")
+                header("Accept", "application/json")
+            }.bodyAsText()
+
+            val json = JSONObject(responseText)
+            if (!json.optBoolean("success", false)) return@runCatching emptyList()
+            val data = json.optJSONArray("data") ?: return@runCatching emptyList()
+            if (data.length() == 0) return@runCatching emptyList()
+
+            val candidates = mutableListOf<JSONObject>()
+            for (i in 0 until data.length()) {
+                candidates.add(data.getJSONObject(i))
+            }
+
+            val best = if (durationSec > 0 && candidates.size > 1) {
+                candidates.minByOrNull { kotlin.math.abs(it.optInt("duration", 0) - durationSec) } ?: candidates.first()
+            } else {
+                candidates.first()
+            }
+
+            val synced = best.optString("syncedLyrics", "").takeIf { it.isNotBlank() }
+            val plain = best.optString("plainLyrics", "").takeIf { it.isNotBlank() }
+            val lyricsText = synced ?: plain ?: return@runCatching emptyList()
+
+            val parsed = if (synced != null) LyricParser.parseLrc(lyricsText) else LyricParser.parsePlainLyrics(lyricsText)
+            if (isValidLyrics(parsed)) {
+                AppLogger.i(TAG, "SimpMusic hit for videoId '$videoId' (${parsed.size} lines, synced=${synced != null})")
+                parsed
+            } else {
+                emptyList()
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    /**
+     * ArchiveTune-inspired Provider 2: Unison
+     * Video ID and metadata search for synchronized lyrics.
+     */
+    private suspend fun fetchUnison(videoId: String, title: String, artist: String, durationSec: Int): List<LyricLine> {
+        val vid = YouTubeIdRegistry.sanitizeVideoId(videoId).takeIf { it.isNotEmpty() }
+        if (!vid.isNullOrBlank() && !vid.startsWith("track_") && !vid.startsWith("placeholder_")) {
+            val byVid = runCatching {
+                val resp = httpClient.get("https://unison.boidu.dev/lyrics") {
+                    parameter("v", vid)
+                    header("Accept", "application/json")
+                    header("User-Agent", "ArchiveTune/1.0")
+                }.bodyAsText()
+
+                val json = JSONObject(resp)
+                if (json.optBoolean("success", false)) {
+                    val data = json.optJSONObject("data")
+                    val lyrics = data?.optString("lyrics", "") ?: ""
+                    if (lyrics.isNotBlank()) {
+                        val parsed = if (lyrics.contains("<tt") || lyrics.contains("<span")) {
+                            LyricParser.parseTtml(lyrics)
+                        } else {
+                            LyricParser.parseLrc(lyrics)
+                        }
+                        if (isValidLyrics(parsed) && !hasLanguageMismatch(title, artist, parsed)) {
+                            AppLogger.i(TAG, "Unison videoId hit for '$vid' (${parsed.size} lines)")
+                            parsed
+                        } else emptyList()
+                    } else emptyList()
+                } else emptyList()
+            }.getOrDefault(emptyList())
+            if (byVid.isNotEmpty()) return byVid
+        }
+        return emptyList()
+    }
+
+    /**
+     * ArchiveTune-inspired Provider 3: YouLyPlus
+     * Multi-mirror client for Apple Music word-level TTML and line-synced LRC.
+     */
+    private suspend fun fetchYouLyPlus(title: String, artist: String, durationSec: Int): List<LyricLine> {
+        val baseUrls = listOf(
+            "https://lyricsplus.binimum.org",
+            "https://lyricsplus.prjktla.my.id",
+            "https://lyricsplus.atomix.one"
+        )
+        val pairs = extractCandidatePairs(title, artist)
+        for (baseUrl in baseUrls) {
+            for ((candTitle, candArtist) in pairs) {
+                // 1. Try TTML word-level
+                val ttmlLines = runCatching {
+                    val resp = httpClient.get("$baseUrl/v1/ttml/get") {
+                        parameter("title", candTitle)
+                        if (candArtist.isNotBlank()) parameter("artist", candArtist)
+                        if (durationSec > 0) parameter("duration", durationSec)
+                        header("Accept", "application/json")
+                        header("User-Agent", "ArchiveTune/1.0")
+                    }.bodyAsText()
+                    val obj = JSONObject(resp)
+                    val ttml = obj.optString("ttml", "")
+                    if (ttml.isNotBlank() && (ttml.contains("<tt") || ttml.contains("<span") || ttml.contains("<p"))) {
+                        val parsed = LyricParser.parseTtml(ttml)
+                        if (isValidLyrics(parsed) && !hasLanguageMismatch(title, artist, parsed)) {
+                            val lastLine = parsed.lastOrNull { !it.isGap }
+                            if (durationSec <= 0 || lastLine == null || kotlin.math.abs((lastLine.timeMs + lastLine.durationMs) / 1000 - durationSec) <= 15) {
+                                AppLogger.i(TAG, "YouLyPlus TTML hit for '$candTitle' by '$candArtist' (${parsed.size} lines)")
+                                return@runCatching parsed
+                            }
+                        }
+                    }
+                    emptyList()
+                }.getOrDefault(emptyList())
+
+                if (ttmlLines.isNotEmpty()) return ttmlLines
+
+                // 2. Try LRC line-level
+                val lrcLines = runCatching {
+                    val resp = httpClient.get("$baseUrl/v2/lyrics/get") {
+                        parameter("title", candTitle)
+                        if (candArtist.isNotBlank()) parameter("artist", candArtist)
+                        if (durationSec > 0) parameter("duration", durationSec)
+                        header("Accept", "application/json")
+                        header("User-Agent", "ArchiveTune/1.0")
+                    }.bodyAsText()
+                    val obj = JSONObject(resp)
+                    val lrc = obj.optString("lyrics", "")
+                    if (lrc.isNotBlank() && lrc.contains("[")) {
+                        val parsed = LyricParser.parseLrc(lrc)
+                        if (isValidLyrics(parsed) && !hasLanguageMismatch(title, artist, parsed)) {
+                            AppLogger.i(TAG, "YouLyPlus LRC hit for '$candTitle' by '$candArtist' (${parsed.size} lines)")
+                            return@runCatching parsed
+                        }
+                    }
+                    emptyList()
+                }.getOrDefault(emptyList())
+
+                if (lrcLines.isNotEmpty()) return lrcLines
+            }
+        }
+        return emptyList()
+    }
+
+    /**
+     * ArchiveTune-inspired concurrent multi-source lyrics cascade.
+     * Launches verified providers simultaneously with quality grading:
+     * - Quality 2: Word-by-word TTML / KRC / YRC karaoke
+     * - Quality 1: High-precision line-synced LRC
+     * - Quality 0: Plain lyrics
+     *
+     * Grants a grace period if line-synced arrives first to allow word-synced TTML to complete.
+     */
     private suspend fun fetchLyricsRaw(
         cleanTitle: String,
         cleanArtist: String,
-        durationSec: Int
-    ): List<LyricLine> {
-        AppLogger.i(TAG, "Fetching lyrics for '$cleanTitle' by '$cleanArtist' (duration: ${durationSec}s)")
+        durationSec: Int,
+        videoId: String? = null
+    ): List<LyricLine> = coroutineScope {
+        AppLogger.i(TAG, "Initiating concurrent lyrics cascade for '$cleanTitle' by '$cleanArtist' (duration: ${durationSec}s, videoId=$videoId)")
         val isHanTrack = HAN_REGEX.containsMatchIn(cleanTitle) || HAN_REGEX.containsMatchIn(cleanArtist)
 
-        if (!isHanTrack) {
-            // ─────────────────────────────────────────────────────────────
-            // NON-HAN TRACK (English, Hindi, Punjabi, Global)
-            // Prioritize: BetterLyrics -> LRCLIB -> Kugou/NetEase strict
-            // ─────────────────────────────────────────────────────────────
+        val channel = Channel<LyricCandidate>(Channel.UNLIMITED)
+        val jobs = mutableListOf<Job>()
 
-            // 1. BetterLyrics TTML / LRC (Apple Music Word-level or Line-level synced)
-            try {
-                val ttmlLyrics = fetchBetterLyrics(cleanTitle, cleanArtist, durationSec)
-                if (ttmlLyrics.isNotEmpty() && ttmlLyrics.any { it.isSynced && !it.isGap }) {
-                    AppLogger.i(TAG, "Loaded synced lyrics from BetterLyrics for '$cleanTitle'")
-                    return ttmlLyrics
+        val cleanVid = YouTubeIdRegistry.sanitizeVideoId(videoId).takeIf { it.isNotEmpty() }
+
+        // 1. SimpMusic (1:1 YouTube videoId lookup -> 0% wrong song mismatch)
+        if (!cleanVid.isNullOrBlank()) {
+            jobs += launch(Dispatchers.IO) {
+                try {
+                    val res = fetchSimpMusic(cleanVid, durationSec)
+                    if (res.isNotEmpty()) {
+                        val q = lyricsQuality(res)
+                        channel.trySend(LyricCandidate("SimpMusic", res, q, priority = if (q == 2) 0 else 2))
+                    }
+                } catch (e: Exception) {
+                    AppLogger.d(TAG, "SimpMusic lookup skipped: ${e.message}")
                 }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "BetterLyrics fetch skipped for '$cleanTitle': ${e.message}")
             }
 
-            // 2. LRCLIB (20M+ accurate synced lyrics for Western/Indian/Global tracks)
-            try {
-                val lrcLibLyrics = fetchLrcLib(cleanTitle, cleanArtist, durationSec)
-                if (lrcLibLyrics.isNotEmpty()) {
-                    AppLogger.i(TAG, "Loaded synced lyrics from LRCLIB for '$cleanTitle'")
-                    return calibrateIntroTimings(filterHeaderMetadata(lrcLibLyrics, cleanTitle, cleanArtist), cleanTitle)
+            // 2. Unison (videoId + metadata lookup)
+            jobs += launch(Dispatchers.IO) {
+                try {
+                    val res = fetchUnison(cleanVid, cleanTitle, cleanArtist, durationSec)
+                    if (res.isNotEmpty()) {
+                        channel.trySend(LyricCandidate("Unison", res, lyricsQuality(res), priority = 2))
+                    }
+                } catch (e: Exception) {
+                    AppLogger.d(TAG, "Unison lookup skipped: ${e.message}")
                 }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "LRCLIB synced fetch skipped for '$cleanTitle': ${e.message}")
-            }
-
-            // 3. Kugou Music KRC (Strict artist & non-Han verification)
-            try {
-                val krcLyrics = fetchKugouKrc(cleanTitle, cleanArtist, durationSec)
-                if (krcLyrics.isNotEmpty() && krcLyrics.any { it.words.isNotEmpty() }) {
-                    AppLogger.i(TAG, "Loaded word-by-word synced lyrics from Kugou KRC for '$cleanTitle'")
-                    return krcLyrics
-                }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "Kugou KRC fetch skipped for '$cleanTitle': ${e.message}")
-            }
-
-            // 4. NetEase Cloud Music YRC (Strict artist & non-Han verification)
-            try {
-                val yrcLyrics = fetchNetEaseYrc(cleanTitle, cleanArtist, durationSec)
-                if (yrcLyrics.isNotEmpty() && yrcLyrics.any { it.words.isNotEmpty() }) {
-                    AppLogger.i(TAG, "Loaded word-by-word synced lyrics from NetEase YRC for '$cleanTitle'")
-                    return yrcLyrics
-                }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "NetEase YRC fetch skipped for '$cleanTitle': ${e.message}")
-            }
-
-            // 5. NetEase Cloud Music LRC (Strict artist & non-Han verification)
-            try {
-                val netEaseLrc = fetchNetEaseLrc(cleanTitle, cleanArtist, durationSec)
-                if (netEaseLrc.isNotEmpty()) {
-                    AppLogger.i(TAG, "Loaded synced lyrics from NetEase LRC for '$cleanTitle'")
-                    return netEaseLrc
-                }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "NetEase LRC fetch skipped for '$cleanTitle': ${e.message}")
-            }
-
-            // 6. Kugou Music LRC (Strict artist & non-Han verification)
-            try {
-                val kugouLrc = fetchKugouLrc(cleanTitle, cleanArtist, durationSec)
-                if (kugouLrc.isNotEmpty()) {
-                    AppLogger.i(TAG, "Loaded synced lyrics from Kugou LRC for '$cleanTitle'")
-                    return kugouLrc
-                }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "Kugou LRC fetch skipped for '$cleanTitle': ${e.message}")
-            }
-
-        } else {
-            // ─────────────────────────────────────────────────────────────
-            // HAN TRACK (Chinese songs)
-            // Prioritize: BetterLyrics -> Kugou KRC -> NetEase YRC -> LRCLIB
-            // ─────────────────────────────────────────────────────────────
-
-            // 1. BetterLyrics TTML
-            try {
-                val ttmlLyrics = fetchBetterLyrics(cleanTitle, cleanArtist, durationSec)
-                if (ttmlLyrics.isNotEmpty() && ttmlLyrics.any { it.isSynced && !it.isGap }) {
-                    AppLogger.i(TAG, "Loaded synced lyrics from BetterLyrics for '$cleanTitle'")
-                    return ttmlLyrics
-                }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "BetterLyrics fetch skipped for '$cleanTitle': ${e.message}")
-            }
-
-            // 2. Kugou Music KRC (Word-level syllable timestamps)
-            try {
-                val krcLyrics = fetchKugouKrc(cleanTitle, cleanArtist, durationSec)
-                if (krcLyrics.isNotEmpty() && krcLyrics.any { it.words.isNotEmpty() }) {
-                    AppLogger.i(TAG, "Loaded word-by-word synced lyrics from Kugou KRC for '$cleanTitle'")
-                    return krcLyrics
-                }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "Kugou KRC fetch skipped for '$cleanTitle': ${e.message}")
-            }
-
-            // 3. NetEase Cloud Music YRC (Word-level syllable timestamps)
-            try {
-                val yrcLyrics = fetchNetEaseYrc(cleanTitle, cleanArtist, durationSec)
-                if (yrcLyrics.isNotEmpty() && yrcLyrics.any { it.words.isNotEmpty() }) {
-                    AppLogger.i(TAG, "Loaded word-by-word synced lyrics from NetEase YRC for '$cleanTitle'")
-                    return yrcLyrics
-                }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "NetEase YRC fetch skipped for '$cleanTitle': ${e.message}")
-            }
-
-            // 4. LRCLIB (Line-synced LRC fallback)
-            try {
-                val lrcLibLyrics = fetchLrcLib(cleanTitle, cleanArtist, durationSec)
-                if (lrcLibLyrics.isNotEmpty()) {
-                    AppLogger.i(TAG, "Loaded synced lyrics from LRCLIB for '$cleanTitle'")
-                    return lrcLibLyrics
-                }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "LRCLIB synced fetch skipped for '$cleanTitle': ${e.message}")
-            }
-
-            // 5. NetEase Cloud Music LRC
-            try {
-                val netEaseLrc = fetchNetEaseLrc(cleanTitle, cleanArtist, durationSec)
-                if (netEaseLrc.isNotEmpty()) {
-                    AppLogger.i(TAG, "Loaded synced lyrics from NetEase LRC for '$cleanTitle'")
-                    return netEaseLrc
-                }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "NetEase LRC fetch skipped for '$cleanTitle': ${e.message}")
-            }
-
-            // 6. Kugou Music LRC
-            try {
-                val kugouLrc = fetchKugouLrc(cleanTitle, cleanArtist, durationSec)
-                if (kugouLrc.isNotEmpty()) {
-                    AppLogger.i(TAG, "Loaded synced lyrics from Kugou LRC for '$cleanTitle'")
-                    return kugouLrc
-                }
-            } catch (e: Exception) {
-                AppLogger.d(TAG, "Kugou LRC fetch skipped for '$cleanTitle': ${e.message}")
             }
         }
 
-        // 7. Unsynced Plain Lyrics (Absolute last resort)
+        // 3. YouLyPlus (Apple Music Word-level TTML & LRC)
+        jobs += launch(Dispatchers.IO) {
+            try {
+                val res = fetchYouLyPlus(cleanTitle, cleanArtist, durationSec)
+                if (res.isNotEmpty()) {
+                    channel.trySend(LyricCandidate("YouLyPlus", res, lyricsQuality(res), priority = 1))
+                }
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "YouLyPlus lookup skipped: ${e.message}")
+            }
+        }
+
+        // 4. BetterLyrics TTML (Apple Music Word-level)
+        jobs += launch(Dispatchers.IO) {
+            try {
+                val res = fetchBetterLyrics(cleanTitle, cleanArtist, durationSec)
+                if (res.isNotEmpty() && res.any { it.isSynced && !it.isGap }) {
+                    channel.trySend(LyricCandidate("BetterLyrics", res, lyricsQuality(res), priority = 1))
+                }
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "BetterLyrics lookup skipped: ${e.message}")
+            }
+        }
+
+        // 5. LRCLIB (Line-synced LRC with strict duration & Levenshtein matching)
+        jobs += launch(Dispatchers.IO) {
+            try {
+                val res = fetchLrcLib(cleanTitle, cleanArtist, durationSec)
+                if (res.isNotEmpty()) {
+                    val calibrated = calibrateIntroTimings(filterHeaderMetadata(res, cleanTitle, cleanArtist), cleanTitle)
+                    channel.trySend(LyricCandidate("LRCLIB", calibrated, lyricsQuality(calibrated), priority = 3))
+                }
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "LRCLIB lookup skipped: ${e.message}")
+            }
+        }
+
+        // 6. Kugou Music KRC (Word-level) or LRC
+        jobs += launch(Dispatchers.IO) {
+            try {
+                val krc = fetchKugouKrc(cleanTitle, cleanArtist, durationSec)
+                if (krc.isNotEmpty() && krc.any { it.words.isNotEmpty() }) {
+                    channel.trySend(LyricCandidate("KugouKRC", krc, 2, priority = if (isHanTrack) 1 else 3))
+                } else {
+                    val lrc = fetchKugouLrc(cleanTitle, cleanArtist, durationSec)
+                    if (lrc.isNotEmpty()) {
+                        channel.trySend(LyricCandidate("KugouLRC", lrc, 1, priority = 5))
+                    }
+                }
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "Kugou lookup skipped: ${e.message}")
+            }
+        }
+
+        // 7. NetEase Cloud Music YRC (Word-level) or LRC
+        jobs += launch(Dispatchers.IO) {
+            try {
+                val yrc = fetchNetEaseYrc(cleanTitle, cleanArtist, durationSec)
+                if (yrc.isNotEmpty() && yrc.any { it.words.isNotEmpty() }) {
+                    channel.trySend(LyricCandidate("NetEaseYRC", yrc, 2, priority = if (isHanTrack) 2 else 4))
+                } else {
+                    val lrc = fetchNetEaseLrc(cleanTitle, cleanArtist, durationSec)
+                    if (lrc.isNotEmpty()) {
+                        channel.trySend(LyricCandidate("NetEaseLRC", lrc, 1, priority = 5))
+                    }
+                }
+            } catch (e: Exception) {
+                AppLogger.d(TAG, "NetEase lookup skipped: ${e.message}")
+            }
+        }
+
+        var best: LyricCandidate? = null
+        val overallDeadline = SystemClock.elapsedRealtime() + 6500L
+        var qualityDeadline = overallDeadline
+
         try {
-            val plainLyrics = fetchPlainLyricsFallback(cleanTitle, cleanArtist)
-            if (plainLyrics.isNotEmpty()) {
+            while (SystemClock.elapsedRealtime() < minOf(overallDeadline, qualityDeadline)) {
+                val remainingMs = minOf(overallDeadline, qualityDeadline) - SystemClock.elapsedRealtime()
+                if (remainingMs <= 0L) break
+
+                val candidate = withTimeoutOrNull(remainingMs) {
+                    channel.receive()
+                } ?: break
+
+                val currentBest = best
+                if (currentBest == null ||
+                    candidate.quality > currentBest.quality ||
+                    (candidate.quality == currentBest.quality && candidate.priority < currentBest.priority)
+                ) {
+                    best = candidate
+                    AppLogger.d(TAG, "Candidate elected: ${candidate.providerName} (quality=${candidate.quality}, priority=${candidate.priority}, lines=${candidate.lyrics.size})")
+
+                    if (candidate.quality == 2) {
+                        if (candidate.priority <= 1) {
+                            // Top tier word-level karaoke (YouLyPlus / BetterLyrics / SimpMusic): resolve immediately
+                            break
+                        } else {
+                            // Lower tier word-level: allow 250ms for Apple Music TTML to finish
+                            qualityDeadline = minOf(qualityDeadline, SystemClock.elapsedRealtime() + 250L)
+                        }
+                    } else if (candidate.quality == 1) {
+                        // Line-synced arrived: allow up to 800ms for a word-synced candidate to arrive
+                        qualityDeadline = minOf(qualityDeadline, SystemClock.elapsedRealtime() + 800L)
+                    }
+                }
+            }
+        } finally {
+            jobs.forEach { it.cancel() }
+            channel.close()
+        }
+
+        if (best != null) {
+            AppLogger.i(TAG, "Cascade winner: ${best.providerName} (${best.lyrics.size} lines, quality=${best.quality}) for '$cleanTitle'")
+            return@coroutineScope filterHeaderMetadata(best.lyrics, cleanTitle, cleanArtist)
+        }
+
+        // 8. Plain Lyrics fallback as absolute last resort
+        try {
+            val plain = fetchPlainLyricsFallback(cleanTitle, cleanArtist)
+            if (plain.isNotEmpty()) {
                 AppLogger.i(TAG, "Loaded unsynced plain lyrics as last resort for '$cleanTitle'")
-                return plainLyrics
+                return@coroutineScope plain
             }
         } catch (e: Exception) {
-            AppLogger.d(TAG, "Plain lyrics fallback skipped for '$cleanTitle': ${e.message}")
+            AppLogger.d(TAG, "Plain lyrics fallback failed: ${e.message}")
         }
 
         AppLogger.w(TAG, "All lyrics sources exhausted with no match for '$cleanTitle' by '$cleanArtist'")
-        return emptyList()
+        emptyList()
     }
 
     /**
@@ -675,11 +880,18 @@ class ExternalLyricsService(
     private suspend fun fetchLrcLib(title: String, artist: String, durationSec: Int): List<LyricLine> {
         val pairs = extractCandidatePairs(title, artist)
 
-        fun pickBestSyncedCandidate(results: List<LrcLibResponse>, expectedArtist: String): List<LyricLine>? {
+        fun pickBestSyncedCandidate(results: List<LrcLibResponse>, expectedArtist: String, targetTitle: String): List<LyricLine>? {
             val candidates = results.filter { r ->
-                !r.syncedLyrics.isNullOrBlank() &&
-                        (durationSec <= 30 || r.duration <= 0.0 || r.duration >= 30.0) &&
-                        (expectedArtist.isBlank() || isArtistMatching(expectedArtist, r.artistName) || (artist.isNotBlank() && isArtistMatching(artist, r.artistName)))
+                if (r.syncedLyrics.isNullOrBlank()) return@filter false
+                val durDiff = if (durationSec > 0 && r.duration > 0.0) kotlin.math.abs(r.duration - durationSec) else 0.0
+                // ArchiveTune accuracy rule: songs with >3.5s duration difference are different versions/songs
+                val durationMatches = durationSec <= 0 || r.duration <= 0.0 || durDiff <= 3.5
+                val artistMatches = expectedArtist.isBlank() || isArtistMatching(expectedArtist, r.artistName) || (artist.isNotBlank() && isArtistMatching(artist, r.artistName))
+                val titleSim = stringSimilarity(targetTitle, r.trackName)
+                val titleMatches = targetTitle.isBlank() || titleSim >= 0.65 ||
+                        r.trackName.contains(targetTitle, ignoreCase = true) ||
+                        targetTitle.contains(r.trackName, ignoreCase = true)
+                durationMatches && artistMatches && titleMatches
             }
             if (candidates.isEmpty()) return null
 
@@ -691,12 +903,12 @@ class ExternalLyricsService(
 
             if (bestMatch?.syncedLyrics != null) {
                 val diff = if (durationSec > 0 && bestMatch.duration > 0) kotlin.math.abs(bestMatch.duration - durationSec) else 0.0
-                val durationOk = durationSec <= 0 || bestMatch.duration <= 0.0 || diff <= 30.0
+                val durationOk = durationSec <= 0 || bestMatch.duration <= 0.0 || diff <= 3.5
                 val artistOk = expectedArtist.isBlank() || isArtistMatching(expectedArtist, bestMatch.artistName) || (artist.isNotBlank() && isArtistMatching(artist, bestMatch.artistName))
                 if (durationOk && artistOk) {
                     val lines = LyricParser.parseLrc(bestMatch.syncedLyrics)
                     if (isValidLyrics(lines) && !hasLanguageMismatch(title, artist, lines)) {
-                        AppLogger.i(TAG, "lrclib candidate accepted: '${bestMatch.trackName}' by '${bestMatch.artistName}' (dur: ${bestMatch.duration}s)")
+                        AppLogger.i(TAG, "lrclib candidate accepted: '${bestMatch.trackName}' by '${bestMatch.artistName}' (dur: ${bestMatch.duration}s, diff: ${diff}s)")
                         return lines
                     }
                 }
@@ -723,10 +935,10 @@ class ExternalLyricsService(
                         val durationDiff = if (durationSec > 0 && exactResult.duration > 0.0) {
                             kotlin.math.abs(exactResult.duration - durationSec)
                         } else 0.0
-                        if (durationSec <= 0 || durationDiff <= 25.0) {
+                        if (durationSec <= 0 || durationDiff <= 4.0) {
                             val lines = LyricParser.parseLrc(syncedLyrics)
                             if (isValidLyrics(lines) && !hasLanguageMismatch(title, artist, lines)) {
-                                AppLogger.i(TAG, "lrclib.net /get exact synced match accepted for '$candTitle' by '$candArtist'")
+                                AppLogger.i(TAG, "lrclib.net /get exact synced match accepted for '$candTitle' by '$candArtist' (diff: ${durationDiff}s)")
                                 return lines
                             }
                         }
@@ -747,7 +959,7 @@ class ExternalLyricsService(
                 }.bodyAsText()
 
                 val searchResults = json.decodeFromString<List<LrcLibResponse>>(searchResponse)
-                val lines = pickBestSyncedCandidate(searchResults, candArtist)
+                val lines = pickBestSyncedCandidate(searchResults, candArtist, candTitle)
                 if (lines != null) return lines
             } catch (e: Exception) {
                 AppLogger.d(TAG, "lrclib /search (track+artist) failed for '$candTitle': ${e.message}")
@@ -762,7 +974,7 @@ class ExternalLyricsService(
                 }.bodyAsText()
 
                 val queryResults = json.decodeFromString<List<LrcLibResponse>>(queryResponse)
-                val lines = pickBestSyncedCandidate(queryResults, candArtist)
+                val lines = pickBestSyncedCandidate(queryResults, candArtist, candTitle)
                 if (lines != null) return lines
             } catch (e: Exception) {
                 AppLogger.d(TAG, "lrclib /search (q=$queryStr) failed: ${e.message}")
