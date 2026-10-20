@@ -4,6 +4,7 @@ import android.util.Base64
 import com.lin0721.linmusic.core.log.AppLogger
 import com.lin0721.linmusic.core.player.domain.LyricLine
 import com.lin0721.linmusic.core.player.domain.LyricParser
+import com.lin0721.linmusic.core.player.domain.WordInfo
 import com.lin0721.linmusic.core.player.innertube.YouTubeIdRegistry
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -32,6 +33,21 @@ import kotlinx.coroutines.withTimeoutOrNull
 private const val TAG = "ExternalLyricsService"
 private const val LRCLIB_BASE = "https://lrclib.net/api"
 private val HAN_REGEX = Regex("""[\u4e00-\u9fff]""")
+
+private val SUPABASE_BLACKLIST_VIDEOS = setOf(
+    "BBM57gr9fFU", // bargad by sufr (wrong song uploaded to Supabase)
+    "VhRJ-3T4Rcw"  // Maharani by Karun/Arpit Bala (delete/bypass Supabase, use high-accuracy external cascade)
+)
+
+private fun isSupabaseBlacklisted(videoId: String?, title: String, artist: String): Boolean {
+    val cleanVid = YouTubeIdRegistry.sanitizeVideoId(videoId)
+    if (cleanVid.isNotEmpty() && SUPABASE_BLACKLIST_VIDEOS.contains(cleanVid)) return true
+    val t = title.lowercase()
+    val a = artist.lowercase()
+    if (t.contains("maharani") && (a.contains("arpit") || a.contains("karun") || a.contains("lambo") || a.isBlank())) return true
+    if (t.contains("bargad") && (a.contains("sufr") || a.contains("surf") || a.contains("arpit") || a.isBlank())) return true
+    return false
+}
 
 /**
  * Multi-source synchronized lyrics engine with automatic fallback cascade.
@@ -130,10 +146,15 @@ class ExternalLyricsService(
             }
         }
 
+        val isBlacklistedFromSupabase = isSupabaseBlacklisted(cleanVid, cleanTitle, cleanArtist)
+
         // 2. Local flash storage check (< 2 ms)
         if (context != null) {
             val file = getDiskCacheFile(cleanVid, cleanTitle, cleanArtist)
-            if (file != null && file.exists() && file.length() > 0) {
+            if (isBlacklistedFromSupabase && file != null && file.exists()) {
+                // If previously cached from Supabase or corrupted, purge so accurate external lyrics are fetched
+                file.delete()
+            } else if (file != null && file.exists() && file.length() > 0) {
                 val diskLyrics = runCatching {
                     val text = file.readText()
                     val parsed = LyricParser.parseTtml(text)
@@ -164,7 +185,8 @@ class ExternalLyricsService(
 
         // 3. Supabase Cloud Object Storage fetch (~50 to 150 ms)
         val resolvedVid = cleanVid ?: YouTubeIdRegistry.findVideoIdByTitleArtist(cleanTitle, cleanArtist, durationSec)
-        if (!resolvedVid.isNullOrBlank() && !resolvedVid.startsWith("track_") && !resolvedVid.startsWith("placeholder_")) {
+        val isResolvedBlacklisted = isBlacklistedFromSupabase || isSupabaseBlacklisted(resolvedVid, cleanTitle, cleanArtist)
+        if (!isResolvedBlacklisted && !resolvedVid.isNullOrBlank() && !resolvedVid.startsWith("track_") && !resolvedVid.startsWith("placeholder_")) {
             val cloudLyrics = fetchZohoCloudTtml(resolvedVid, cleanTitle, cleanArtist, durationSec)
             if (cloudLyrics.isNotEmpty()) {
                 val processed = if (cloudLyrics.any { it.isSynced && !it.isGap }) LyricParser.processLinesWithGaps(cloudLyrics) else cloudLyrics
@@ -232,14 +254,24 @@ class ExternalLyricsService(
             pairs.add(Pair(cleanT, cleanA))
         }
 
-        // 3. Try primary artist if multiple artists present (e.g. "Chaar Diwaari, Raftaar" -> "Chaar Diwaari")
+        // Specific alias additions for known songs
+        if (cleanT.equals("bargad", ignoreCase = true)) {
+            pairs.add(Pair("bargad", "sufr"))
+            pairs.add(Pair("bargad", "Arpit Bala"))
+        } else if (cleanT.equals("maharani", ignoreCase = true)) {
+            pairs.add(Pair("maharani", "karun"))
+            pairs.add(Pair("maharani", "arpit bala"))
+        }
+
+        // 3. Try each artist if multiple artists present (e.g. "sufr, Arpit Bala, toorjo dey" -> "sufr", "Arpit Bala")
         if (cleanA.isNotEmpty()) {
-            val primaryArtist = cleanA.split(Regex("""[\s,;&/、|\\+x]+""")).firstOrNull { it.length >= 2 }?.trim().orEmpty()
-            if (primaryArtist.isNotEmpty() && primaryArtist != cleanA) {
+            val splitArtists = cleanA.split(Regex("""[\s,;&/、|\\+x]+""")).map { it.trim() }.filter { it.length >= 2 }
+            for (art in splitArtists) {
+                val normalizedArt = if (art.equals("surf", ignoreCase = true)) "sufr" else art
                 if (pairs.isNotEmpty()) {
-                    pairs.add(Pair(pairs.first().first, primaryArtist))
+                    pairs.add(Pair(pairs.first().first, normalizedArt))
                 }
-                pairs.add(Pair(cleanT, primaryArtist))
+                pairs.add(Pair(cleanT, normalizedArt))
             }
         }
 
@@ -422,8 +454,8 @@ class ExternalLyricsService(
 
                 if (ttmlLines.isNotEmpty()) return ttmlLines
 
-                // 2. Try LRC line-level
-                val lrcLines = runCatching {
+                // 2. Try JSON lyrics array or LRC line-level
+                val parsedLines = runCatching {
                     val resp = httpClient.get("$baseUrl/v2/lyrics/get") {
                         parameter("title", candTitle)
                         if (candArtist.isNotBlank()) parameter("artist", candArtist)
@@ -432,6 +464,40 @@ class ExternalLyricsService(
                         header("User-Agent", "ArchiveTune/1.0")
                     }.bodyAsText()
                     val obj = JSONObject(resp)
+
+                    // Case A: Apple Music JSON lyrics array with word-level syllabus
+                    val lyricsArray = obj.optJSONArray("lyrics")
+                    if (lyricsArray != null && lyricsArray.length() > 0) {
+                        val lines = mutableListOf<LyricLine>()
+                        for (i in 0 until lyricsArray.length()) {
+                            val lineObj = lyricsArray.getJSONObject(i)
+                            val timeMs = lineObj.optLong("time", -1L)
+                            if (timeMs < 0L) continue
+                            val durMs = lineObj.optLong("duration", 0L)
+                            val text = lineObj.optString("text", "")
+                            val syllabusArray = lineObj.optJSONArray("syllabus")
+                            val words = mutableListOf<WordInfo>()
+                            if (syllabusArray != null) {
+                                for (j in 0 until syllabusArray.length()) {
+                                    val sObj = syllabusArray.getJSONObject(j)
+                                    val sTime = sObj.optLong("time", timeMs)
+                                    val sDur = sObj.optLong("duration", 0L)
+                                    val sText = sObj.optString("text", "")
+                                    if (sText.isNotEmpty()) {
+                                        val offset = (sTime - timeMs).coerceAtLeast(0L)
+                                        words.add(WordInfo(text = sText, startOffsetMs = offset, durationMs = sDur))
+                                    }
+                                }
+                            }
+                            lines.add(LyricLine(timeMs = timeMs, durationMs = durMs, text = text, isSynced = true, words = words))
+                        }
+                        if (isValidLyrics(lines) && !hasLanguageMismatch(title, artist, lines)) {
+                            AppLogger.i(TAG, "YouLyPlus JSON lyrics hit for '$candTitle' by '$candArtist' (${lines.size} lines, words=${lines.count { it.words.isNotEmpty() }})")
+                            return@runCatching lines
+                        }
+                    }
+
+                    // Case B: standard LRC string
                     val lrc = obj.optString("lyrics", "")
                     if (lrc.isNotBlank() && lrc.contains("[")) {
                         val parsed = LyricParser.parseLrc(lrc)
@@ -443,7 +509,7 @@ class ExternalLyricsService(
                     emptyList()
                 }.getOrDefault(emptyList())
 
-                if (lrcLines.isNotEmpty()) return lrcLines
+                if (parsedLines.isNotEmpty()) return parsedLines
             }
         }
         return emptyList()
@@ -1403,7 +1469,8 @@ class ExternalLyricsService(
         cleanArtist: String,
         durationSec: Int
     ): List<LyricLine> {
-        if (videoId.isBlank() || videoId.startsWith("track_") || videoId.startsWith("placeholder_")) {
+        if (videoId.isBlank() || videoId.startsWith("track_") || videoId.startsWith("placeholder_") || isSupabaseBlacklisted(videoId, cleanTitle, cleanArtist)) {
+            AppLogger.d(TAG, "Skipping Supabase Cloud TTML: videoId=$videoId (blacklisted or invalid)")
             return emptyList()
         }
         val configuredBase = settingsPreferences?.zohoLyricsBaseUrl?.firstOrNull()?.trim()
