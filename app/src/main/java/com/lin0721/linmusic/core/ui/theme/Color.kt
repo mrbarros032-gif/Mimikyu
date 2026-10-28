@@ -2,9 +2,9 @@ package com.lin0721.linmusic.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// HSV ，/，。
-// coerceIn ：/ ≤ 0.35，
-// ，；"Darker"，
+const val NEUTRAL_BASE_CHROMA = 0.05f
+const val MIN_BASE_CHROMA = 0.15f
+
 fun Color.lighten(amount: Float): Color {
     val hsv = FloatArray(3)
     android.graphics.Color.RGBToHSV((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt(), hsv)
@@ -19,8 +19,6 @@ fun Color.darken(amount: Float): Color {
     return Color(android.graphics.Color.HSVToColor(hsv))
 }
 
-// HSV ； 0（/），，
-// of
 fun Color.saturate(amount: Float): Color {
     val hsv = FloatArray(3)
     android.graphics.Color.RGBToHSV((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt(), hsv)
@@ -29,88 +27,67 @@ fun Color.saturate(amount: Float): Color {
     return Color(android.graphics.Color.HSVToColor(hsv))
 }
 
-// base ： base  NEUTRAL_BASE_CHROMA  of ，；
-// ， of
 fun Color.saturateIfChromatic(amount: Float): Color {
     val chroma = maxOf(red, green, blue) - minOf(red, green, blue)
     val weight = ((chroma - NEUTRAL_BASE_CHROMA) / (MIN_BASE_CHROMA - NEUTRAL_BASE_CHROMA)).coerceIn(0f, 1f)
     return saturate(amount * weight)
 }
 
-val BackgroundDark = Color(0xFF141414)
-val SurfaceDark = Color(0xFF1A1A1A)
-val SurfaceLight = Color(0xFF262626)
-val TextGray = Color(0xFFB3B3B3)
+// NYX Color Palette (estilo Milk Player)
+val BackgroundDark = Color(0xFF0B0B10)
+val SurfaceDark = Color(0xFF16161E)
+val SurfaceLight = Color(0xFF21212C)
+val TextGray = Color(0xFF9A9AAE)
 
-// Official Mimikyu "Magenta X Charcoal" Color Palette
-val MimikyuMagenta = Color(0xFFFF007F)
-val MimikyuDarkMagenta = Color(0xFFD6006B)
-val MimikyuCharcoal = Color(0xFF1A1A1A)
-val MimikyuDarkCharcoal = Color(0xFF121212)
-val MimikyuMediumCharcoal = Color(0xFF282828)
-val MimikyuLightGray = Color(0xFFB3B3B3)
+val NyxAccent = Color(0xFF8B7CFF)
+val NyxAccentDark = Color(0xFF6B5CD6)
+
+val MimikyuMagenta = NyxAccent
+val MimikyuDarkMagenta = NyxAccentDark
+val MimikyuCharcoal = Color(0xFF16161E)
+val MimikyuDarkCharcoal = Color(0xFF0B0B10)
+val MimikyuMediumCharcoal = Color(0xFF21212C)
+val MimikyuLightGray = Color(0xFF9A9AAE)
 val MimikyuWhite = Color(0xFFFFFFFF)
 
-// Core palette aliases mapped to Magenta X Charcoal
-val MimikyuGreen = MimikyuMagenta
-val MimikyuDarkGreen = MimikyuDarkMagenta
+val MimikyuGreen = NyxAccent
+val MimikyuDarkGreen = NyxAccentDark
 val MimikyuBlack = MimikyuCharcoal
 val MimikyuDarkGray = MimikyuCharcoal
 val MimikyuMediumGray = MimikyuMediumCharcoal
 
-// Brand Color Palette (Synchronized with Mimikyu)
-val OctoberRed = MimikyuMagenta
-val OctoberCrimson = MimikyuDarkMagenta
+val OctoberRed = NyxAccent
+val OctoberCrimson = NyxAccentDark
 val OctoberCharcoal = MimikyuCharcoal
 val OctoberWhite = MimikyuWhite
 
-val NeteaseRed = MimikyuMagenta
+val NeteaseRed = NyxAccent
 val GradientStart = MimikyuCharcoal
-val BackgroundBlack = Color(0xFF121212)
+val BackgroundBlack = Color(0xFF0B0B10)
 
-// Category Navigation Pill Selected
-val NavPillSelected = Color(0xFF331A26)
-
-// Filter Pill Inactive
-val FilterPillInactive = Color(0xFF262626)
-
-// Toast
+val NavPillSelected = Color(0xFF2A2540)
+val FilterPillInactive = Color(0xFF21212C)
 val ToastBackground = MimikyuCharcoal
-
-// Web Login Background
-val WebLoginBackground = Color(0xFF121212)
-
-// Fallback base
+val WebLoginBackground = Color(0xFF0B0B10)
 val FallbackBase = MimikyuCharcoal
-
-// Playlists/Artists placeholder
 val CoverPlaceholderDark = MimikyuCharcoal
-
-// Sleep Timer warning
 val TimerWarningRed = Color(0xFFFF5252)
 
-// Library gradient
 val LibraryVioletGradient = listOf(
-    Color(0xFFFF007F),
-    Color(0xFFA855F7),
+    Color(0xFF8B7CFF),
+    Color(0xFFA78BFA),
     Color(0xFF6366F1)
 )
 
-// Library Blue Green gradient
 val LibraryBlueGreenGradient = listOf(
-    Color(0xFFFF007F),
-    Color(0xFF8B5CF6)
+    Color(0xFF8B7CFF),
+    Color(0xFF7C3AED)
 )
 
-// Download
-val DownloadedGreen = MimikyuMagenta
-
-// SVIP
+val DownloadedGreen = NyxAccent
 val SvipGold = Color(0xFFD4A017)
 
-// of 。Heartbeat Mode、，
-
-val EntryDailyGradient = listOf(Color(0xFFE5484D), Color(0xFF8C1116))
+val EntryDailyGradient = listOf(Color(0xFF8B7CFF), Color(0xFF5B4DB8))
 val EntryHotGradient = listOf(Color(0xFFF08C1A), Color(0xFF9C4A05))
 val EntryHeartGradient = listOf(Color(0xFFA33FC4), Color(0xFF4B1268))
 val EntryRadarGradient = listOf(Color(0xFF2F7FD6), Color(0xFF123F70))
