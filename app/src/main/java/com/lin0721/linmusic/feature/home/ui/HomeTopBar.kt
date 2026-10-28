@@ -95,7 +95,7 @@ fun FilterPills(
         itemsIndexed(labels, key = { _, label -> label }) { index, label ->
             FilterPillChip(
                 text = label,
-                selected = index == selectedTab,
+                selected = index == selectedIndex,
                 pressStyle = MimikyuPress.Pill,
                 onClick = { onSelected(index) },
                 modifier = Modifier.padding(start = if (index == 0) 0.dp else 12.dp)
