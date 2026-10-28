@@ -25,7 +25,6 @@ jobs:
         run: |
           if [ ! -f app/google-services.json ]; then
             cp app/google-services.example.json app/google-services.json
-            echo "Copied google-services.example.json"
           fi
 
       - name: Setup JDK 21
@@ -36,12 +35,21 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-disabled: true
 
-      - name: Build innertube library
-        run: ./gradlew :innertube:assembleDebug --no-daemon --no-configuration-cache --no-parallel
+      - name: Assemble debug APK
+        run: |
+          ./gradlew :app:assembleDebug \
+            --no-daemon \
+            --no-configuration-cache \
+            --no-parallel \
+            --rerun-tasks \
+            --stacktrace
 
-      - name: Assemble app debug APK
-        run: ./gradlew :app:assembleDebug --no-daemon --no-configuration-cache --no-parallel --stacktrace
+      - name: List APK outputs
+        if: always()
+        run: find app/build/outputs -name '*.apk' -ls || true
 
       - name: Upload APK
         if: always()
