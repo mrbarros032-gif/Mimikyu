@@ -24,9 +24,6 @@ fun Color.saturate(amount: Float): Color {
     return Color(android.graphics.Color.HSVToColor(hsv))
 }
 
-const val NEUTRAL_BASE_CHROMA = 0.05f
-const val MIN_BASE_CHROMA = 0.15f
-
 fun Color.saturateIfChromatic(amount: Float): Color {
     val chroma = maxOf(red, green, blue) - minOf(red, green, blue)
     val weight = ((chroma - NEUTRAL_BASE_CHROMA) / (MIN_BASE_CHROMA - NEUTRAL_BASE_CHROMA)).coerceIn(0f, 1f)
