@@ -2,9 +2,6 @@ package com.lin0721.linmusic.core.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-const val NEUTRAL_BASE_CHROMA = 0.05f
-const val MIN_BASE_CHROMA = 0.15f
-
 fun Color.lighten(amount: Float): Color {
     val hsv = FloatArray(3)
     android.graphics.Color.RGBToHSV((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt(), hsv)
@@ -27,13 +24,16 @@ fun Color.saturate(amount: Float): Color {
     return Color(android.graphics.Color.HSVToColor(hsv))
 }
 
+const val NEUTRAL_BASE_CHROMA = 0.05f
+const val MIN_BASE_CHROMA = 0.15f
+
 fun Color.saturateIfChromatic(amount: Float): Color {
     val chroma = maxOf(red, green, blue) - minOf(red, green, blue)
     val weight = ((chroma - NEUTRAL_BASE_CHROMA) / (MIN_BASE_CHROMA - NEUTRAL_BASE_CHROMA)).coerceIn(0f, 1f)
     return saturate(amount * weight)
 }
 
-// NYX Color Palette (estilo Milk Player)
+// Nyx palette (Milk style)
 val BackgroundDark = Color(0xFF0B0B10)
 val SurfaceDark = Color(0xFF16161E)
 val SurfaceLight = Color(0xFF21212C)
@@ -50,18 +50,18 @@ val MimikyuMediumCharcoal = Color(0xFF21212C)
 val MimikyuLightGray = Color(0xFF9A9AAE)
 val MimikyuWhite = Color(0xFFFFFFFF)
 
-val MimikyuGreen = NyxAccent
-val MimikyuDarkGreen = NyxAccentDark
+val MimikyuGreen = MimikyuMagenta
+val MimikyuDarkGreen = MimikyuDarkMagenta
 val MimikyuBlack = MimikyuCharcoal
 val MimikyuDarkGray = MimikyuCharcoal
 val MimikyuMediumGray = MimikyuMediumCharcoal
 
-val OctoberRed = NyxAccent
-val OctoberCrimson = NyxAccentDark
+val OctoberRed = MimikyuMagenta
+val OctoberCrimson = MimikyuDarkMagenta
 val OctoberCharcoal = MimikyuCharcoal
 val OctoberWhite = MimikyuWhite
 
-val NeteaseRed = NyxAccent
+val NeteaseRed = MimikyuMagenta
 val GradientStart = MimikyuCharcoal
 val BackgroundBlack = Color(0xFF0B0B10)
 
@@ -84,7 +84,7 @@ val LibraryBlueGreenGradient = listOf(
     Color(0xFF7C3AED)
 )
 
-val DownloadedGreen = NyxAccent
+val DownloadedGreen = MimikyuMagenta
 val SvipGold = Color(0xFFD4A017)
 
 val EntryDailyGradient = listOf(Color(0xFF8B7CFF), Color(0xFF5B4DB8))
