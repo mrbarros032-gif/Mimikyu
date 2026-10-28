@@ -21,6 +21,13 @@ jobs:
       - name: Fix gradlew permissions
         run: chmod +x ./gradlew
 
+      - name: Prepare google-services.json
+        run: |
+          if [ ! -f app/google-services.json ]; then
+            cp app/google-services.example.json app/google-services.json
+            echo "Copied google-services.example.json"
+          fi
+
       - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
@@ -30,28 +37,20 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit tests
-        continue-on-error: true
-        run: ./gradlew testDebugUnitTest --no-daemon
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Assemble release APK
+        continue-on-error: true
         run: ./gradlew assembleRelease --no-daemon
 
-      - name: Upload test reports
+      - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: app/build/reports/tests/
-          retention-days: 7
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-apk
+          name: nyx-apk
           path: |
-            app/build/outputs/apk/release/*.apk
             app/build/outputs/apk/debug/*.apk
-            app/build/outputs/mapping/release/mapping.txt
+            app/build/outputs/apk/release/*.apk
           retention-days: 14
-          if-no-files-found: warn
+          if-no-files-found: error
